@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610201215";
-import { el } from "./dom.js?v=202610201215";
-import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201215";
+import { CONFIG } from "./config.js?v=202610201220";
+import { el } from "./dom.js?v=202610201220";
+import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201220";
 
 const TOKEN_KEY = "cwr_token";
 const NAME_KEY = "cwr_name";
@@ -72,6 +72,8 @@ function loadGsi() {
 }
 
 async function showLogin(panel, onLogin, message) {
+  commentLayer?.remove();
+  commentLayer = null;
   panel.replaceChildren(el("h2", {}, "意見"));
   if (message) panel.append(el("p", { class: "notice" }, message));
   if (isInAppBrowser(navigator.userAgent)) {
