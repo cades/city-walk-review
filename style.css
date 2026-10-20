@@ -183,3 +183,50 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 @media (min-width: 1300px) {
   .home-body .groups { grid-template-columns: 1fr 1fr; align-items: start; }
 }
+
+.pin-comment { background: var(--accent); }
+.pin-handled { background: var(--pin-station); }
+
+.comment-tools { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+.comment-form { display: grid; gap: 8px; margin-bottom: 16px; }
+.comment-form label { font-weight: 700; }
+.comment-form textarea {
+  font: inherit;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  resize: vertical;
+}
+.form-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.primary {
+  font: inherit;
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--accent);
+  color: var(--surface);
+  cursor: pointer;
+}
+.primary:disabled { opacity: 0.6; cursor: progress; }
+.link-button {
+  font: inherit;
+  font-size: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.form-status { margin: 0; min-height: 1.4em; color: var(--muted); font-size: 14px; }
+.comments { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.comment { padding-top: 12px; border-top: 1px solid var(--line); }
+.comment p { margin: 0; }
+.comment-meta { color: var(--muted); font-size: 14px; }
+.comment-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-reply { margin-top: 4px !important; color: var(--info-fg); }
+.comment-handled .comment-text { color: var(--muted); }
+.comment-empty { color: var(--muted); }

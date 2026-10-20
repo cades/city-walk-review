@@ -1,4 +1,6 @@
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201040";
+import { el } from "./dom.js?v=202610201110";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201110";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201110";
 
 const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}";
 const TILE_ATTRIBUTION = "© 內政部國土測繪中心";
@@ -17,18 +19,7 @@ let data;
 let map = null;
 let mapResizeObserver = null;
 let onlyFlagged = false;
-
-function el(tag, attrs = {}, ...children) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs)) {
-    if (key === "class") node.className = value;
-    else node.setAttribute(key, value);
-  }
-  for (const child of children.flat(Infinity)) {
-    if (child != null) node.append(child);
-  }
-  return node;
-}
+let commentCounts = null;
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -200,6 +191,7 @@ export function showRoute(id) {
         el("section", { class: "panel", id: "comments", hidden: "" }))),
   );
   drawRouteMap(mapBox, route);
+  renderComments(route);
 }
 
 function routeSummary(route) {
@@ -209,9 +201,11 @@ function routeSummary(route) {
 }
 
 function routeRow(route) {
+  const open = commentCounts?.get(route.id);
   return el("li", { class: "route-row" },
     el("a", { href: routeHref(route.id) }, route.title),
     el("span", { class: "row-meta" }, routeSummary(route)),
+    open ? el("span", { class: "chip chip-info" }, `${open} 則未處理意見`) : null,
     flagChips(route, false) || el("span", { class: "row-meta" }, "沒有警示"));
 }
 
@@ -249,6 +243,11 @@ export function showHome() {
       el("div", { class: "stack" }, el("div", { class: "toolbar" }, toggle), listBox)),
   );
   drawOverviewMap(mapBox);
+  homeCommentCounts().then((counts) => {
+    if (!counts || !listBox.isConnected) return;
+    commentCounts = counts;
+    listBox.replaceChildren(groupList());
+  });
 }
 
 function render() {
