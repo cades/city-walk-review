@@ -136,9 +136,9 @@ function listComments(body, user) {
   return { ok: true, comments };
 }
 
-// A leading = + - @ would make Sheets treat user text as a formula.
+// Without the quote prefix Sheets turns user text into formulas, dates ("3/4"), numbers ("0912…") or booleans.
 function literal(text) {
-  return /^[=+\-@]/.test(text) ? "'" + text : text;
+  return "'" + text;
 }
 
 function addComment(body, user) {

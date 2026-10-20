@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610201220";
-import { el } from "./dom.js?v=202610201220";
-import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201220";
+import { CONFIG } from "./config.js?v=202610201230";
+import { el } from "./dom.js?v=202610201230";
+import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201230";
 
 const TOKEN_KEY = "cwr_token";
 const NAME_KEY = "cwr_name";
@@ -110,8 +110,7 @@ function formatTime(iso) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" });
 }
 
-function drawCommentMarkers(comments) {
-  const map = window.routeMap;
+function drawCommentMarkers(comments, map) {
   if (!map) return;
   commentLayer?.remove();
   commentLayer = L.layerGroup().addTo(map);
@@ -209,7 +208,9 @@ export async function renderComments(route) {
   const panel = document.getElementById("comments");
   if (!panel || !feedbackEnabled()) return;
   panel.hidden = false;
-  const rerender = () => renderComments(route);
+  const map = window.routeMap;
+  const stillShowing = () => panel.isConnected && window.routeMap === map;
+  const rerender = () => stillShowing() && renderComments(route);
   if (!stored(TOKEN_KEY)) {
     showLogin(panel, rerender);
     return;
@@ -219,11 +220,13 @@ export async function renderComments(route) {
   try {
     all = await loadComments();
   } catch (error) {
+    if (!stillShowing()) return;
     if (error instanceof LoginExpired) return showLogin(panel, rerender, "登入已過期，請重新登入。");
     if (error instanceof NotMember) return showLogin(panel, rerender, "你還不是成員，請找企劃室加入。");
     panel.replaceChildren(el("h2", {}, "意見"), el("p", { class: "notice" }, `讀不到意見：${error.message}`));
     return;
   }
+  if (!stillShowing()) return;
   const comments = all.filter((comment) => comment.routeId === route.id);
   const heading = el("h2", {});
   const list = el("ul", { class: "comments" });
@@ -251,7 +254,7 @@ export async function renderComments(route) {
     list.replaceChildren(...(comments.length
       ? [...comments].reverse().map((comment) => commentItem(comment, onDelete))
       : [el("li", { class: "comment-empty" }, "這條路線還沒有意見。")]));
-    drawCommentMarkers(comments);
+    drawCommentMarkers(comments, map);
   };
   const form = commentForm(route, (comment) => {
     if (!comment) return showLogin(panel, rerender, "登入已過期，請重新登入。");
