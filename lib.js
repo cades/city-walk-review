@@ -40,3 +40,16 @@ export function openCountsByRoute(comments) {
 export function isAuthError(result) {
   return result?.ok === false && result.error === "auth";
 }
+
+export function latLngOf(position) {
+  const read = (value) => (typeof value === "function" ? value.call(position) : value);
+  return { lat: read(position.lat), lng: read(position.lng) };
+}
+
+export function headingTo(from, to) {
+  const radians = (degrees) => (degrees * Math.PI) / 180;
+  const [lat1, lat2, deltaLng] = [radians(from.lat), radians(to.lat), radians(to.lng - from.lng)];
+  const y = Math.sin(deltaLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(deltaLng);
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  escapeHtml, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, openCountsByRoute, routeIdFromHash,
+  escapeHtml, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf, openCountsByRoute, routeIdFromHash,
 } from "../lib.js";
 
 test("formatMinutes uses 70 m per minute", () => {
@@ -42,4 +42,18 @@ test("openCountsByRoute counts only unhandled comments", () => {
 test("isAuthError", () => {
   assert.ok(isAuthError({ ok: false, error: "auth" }));
   assert.ok(!isAuthError({ ok: false, error: "not_member" }));
+});
+
+test("latLngOf reads both Google LatLng objects and plain literals", () => {
+  const googleLatLng = { lat() { return 25.1; }, lng() { return 121.5; } };
+  assert.deepEqual(latLngOf(googleLatLng), { lat: 25.1, lng: 121.5 });
+  assert.deepEqual(latLngOf({ lat: 22.6, lng: 120.3 }), { lat: 22.6, lng: 120.3 });
+});
+
+test("headingTo points the camera from the panorama towards the marker", () => {
+  const here = { lat: 25.0, lng: 121.5 };
+  assert.equal(Math.round(headingTo(here, { lat: 25.01, lng: 121.5 })), 0);
+  assert.equal(Math.round(headingTo(here, { lat: 25.0, lng: 121.51 })), 90);
+  assert.equal(Math.round(headingTo(here, { lat: 24.99, lng: 121.5 })), 180);
+  assert.equal(Math.round(headingTo(here, { lat: 25.0, lng: 121.49 })), 270);
 });

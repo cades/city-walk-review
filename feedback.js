@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610201240";
-import { el } from "./dom.js?v=202610201240";
-import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201240";
+import { CONFIG } from "./config.js?v=202610201433";
+import { el } from "./dom.js?v=202610201433";
+import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201433";
 
 const TOKEN_KEY = "cwr_token";
 const NAME_KEY = "cwr_name";
@@ -9,6 +9,8 @@ const HANDLED = new Set(["已處理", "不處理"]);
 
 let gsiLoading = null;
 let commentLayer = null;
+let pickLayer = null;
+let stopPicking = null;
 
 class LoginExpired extends Error {}
 class NotMember extends Error {}
@@ -71,9 +73,20 @@ function loadGsi() {
   return gsiLoading;
 }
 
+function stopPinMode() {
+  stopPicking?.();
+  stopPicking = null;
+}
+
+function resetPicking() {
+  stopPinMode();
+  pickLayer?.clear();
+}
+
 async function showLogin(panel, onLogin, message) {
-  commentLayer?.remove();
+  commentLayer?.clear();
   commentLayer = null;
+  resetPicking();
   panel.replaceChildren(el("h2", {}, "意見"));
   if (message) panel.append(el("p", { class: "notice" }, message));
   if (isInAppBrowser(navigator.userAgent)) {
@@ -110,17 +123,15 @@ function formatTime(iso) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("zh-TW", { dateStyle: "short", timeStyle: "short" });
 }
 
-function drawCommentMarkers(comments, map) {
-  if (!map) return;
-  commentLayer?.remove();
-  commentLayer = L.layerGroup().addTo(map);
+function drawCommentMarkers(comments, mapView) {
+  commentLayer?.clear();
+  commentLayer = mapView.layer();
   for (const comment of comments) {
     if (comment.lat == null || comment.lon == null) continue;
     const handled = HANDLED.has(comment.status);
-    const icon = L.divIcon({ className: `pin pin-comment${handled ? " pin-handled" : ""}`, html: "意", iconSize: [26, 26] });
-    L.marker([comment.lat, comment.lon], { icon, title: `${comment.name}的意見` })
-      .bindPopup(el("span", {}, `${comment.name}：${comment.text}`))
-      .addTo(commentLayer);
+    commentLayer.pin(comment, {
+      className: `pin-comment${handled ? " pin-handled" : ""}`, badge: "意", title: `${comment.name}：${comment.text}`, zIndex: 50,
+    });
   }
 }
 
@@ -140,7 +151,7 @@ function commentItem(comment, onDelete) {
   return item;
 }
 
-function commentForm(route, onAdded) {
+function commentForm(route, mapView, onAdded) {
   const textarea = el("textarea", { id: "comment-text", rows: "3", maxlength: "2000", placeholder: "例如：這段沒有人行道" });
   const pinButton = el("button", { type: "button", class: "toggle", "aria-pressed": "false" }, "在地圖上標位置");
   const send = el("button", { type: "submit", class: "primary" }, "送出");
@@ -148,27 +159,26 @@ function commentForm(route, onAdded) {
   const form = el("form", { class: "comment-form" },
     el("label", { for: "comment-text" }, "留意見"), textarea, el("div", { class: "form-row" }, pinButton, send), status);
   let pin = null;
+  resetPicking();
+  pickLayer = mapView.layer();
 
   const clearPin = () => {
-    pin?.remove();
+    pickLayer.clear();
     pin = null;
   };
-  const onMapClick = (event) => {
+  const onMapClick = async (position) => {
     clearPin();
-    pin = L.marker(event.latlng, { draggable: true, icon: L.divIcon({ className: "pin pin-comment", html: "意", iconSize: [26, 26] }) })
-      .addTo(window.routeMap);
+    pin = await pickLayer.draggablePin(position, { className: "pin-comment", badge: "意" });
     status.textContent = "已標好位置，可以拖動標記微調。";
   };
   pinButton.addEventListener("click", () => {
-    const map = window.routeMap;
-    if (!map) return;
     const active = pinButton.getAttribute("aria-pressed") !== "true";
     pinButton.setAttribute("aria-pressed", String(active));
     if (active) {
-      map.on("click", onMapClick);
+      stopPicking = mapView.onClick(onMapClick);
       status.textContent = "請在地圖上點一下要標的位置。";
     } else {
-      map.off("click", onMapClick);
+      stopPinMode();
       clearPin();
       status.textContent = "";
     }
@@ -182,14 +192,14 @@ function commentForm(route, onAdded) {
     }
     send.disabled = true;
     status.textContent = "送出中…";
-    const position = pin?.getLatLng();
+    const position = pin?.position();
     try {
       const { comment } = await api("add", {
         token: stored(TOKEN_KEY), routeId: route.id, routeTitle: route.title, text,
         lat: position ? Number(position.lat.toFixed(6)) : null, lon: position ? Number(position.lng.toFixed(6)) : null,
       });
       textarea.value = "";
-      window.routeMap?.off("click", onMapClick);
+      stopPinMode();
       pinButton.setAttribute("aria-pressed", "false");
       clearPin();
       status.textContent = "已送出。";
@@ -204,13 +214,12 @@ function commentForm(route, onAdded) {
   return form;
 }
 
-export async function renderComments(route) {
+export async function renderComments(route, mapView) {
   const panel = document.getElementById("comments");
   if (!panel || !feedbackEnabled()) return;
   panel.hidden = false;
-  const map = window.routeMap;
-  const stillShowing = () => panel.isConnected && window.routeMap === map;
-  const rerender = () => stillShowing() && renderComments(route);
+  const stillShowing = () => panel.isConnected && mapView.active;
+  const rerender = () => stillShowing() && renderComments(route, mapView);
   if (!stored(TOKEN_KEY)) {
     showLogin(panel, rerender);
     return;
@@ -254,9 +263,9 @@ export async function renderComments(route) {
     list.replaceChildren(...(comments.length
       ? [...comments].reverse().map((comment) => commentItem(comment, onDelete))
       : [el("li", { class: "comment-empty" }, "這條路線還沒有意見。")]));
-    drawCommentMarkers(comments, map);
+    drawCommentMarkers(comments, mapView);
   };
-  const form = commentForm(route, (comment) => {
+  const form = commentForm(route, mapView, (comment) => {
     if (!comment) return showLogin(panel, rerender, "登入已過期，請重新登入。");
     comments.push(comment);
     fill();

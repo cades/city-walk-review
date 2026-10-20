@@ -1,10 +1,8 @@
-import { el } from "./dom.js?v=202610201240";
-import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201240";
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201240";
+import { el } from "./dom.js?v=202610201433";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201433";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201433";
+import { showMap } from "./map.js?v=202610201433";
 
-const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}";
-const TILE_ATTRIBUTION = "© 內政部國土測繪中心";
-const TAIWAN_CENTER = [23.7, 121.0];
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
   ["station", "站", "最近車站"],
@@ -16,8 +14,6 @@ const PINS = [
 
 const app = document.getElementById("app");
 let data;
-let map = null;
-let mapResizeObserver = null;
 let onlyFlagged = false;
 let commentCounts = null;
 
@@ -38,82 +34,47 @@ function describePlace(point, meters) {
 }
 
 function resetView() {
-  mapResizeObserver?.disconnect();
-  mapResizeObserver = null;
-  if (map) {
-    map.remove();
-    map = null;
-    window.routeMap = null;
-  }
   app.replaceChildren();
   window.scrollTo(0, 0);
 }
 
-function createMap(container) {
-  map = L.map(container, { scrollWheelZoom: false });
-  L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
-  return map;
-}
-
-function keepFramed(container, bounds) {
-  const frame = () => {
-    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
-    else map.setView(TAIWAN_CENTER, 7);
-  };
-  frame();
-  mapResizeObserver = new ResizeObserver(() => {
-    if (!map) return;
-    map.invalidateSize();
-    frame();
-  });
-  mapResizeObserver.observe(container);
-}
-
 function drawRouteMap(container, route) {
-  createMap(container);
-  window.routeMap = map;
+  const view = showMap(container);
   const bounds = [];
   const [first, second] = route.legs;
   if (first) {
-    L.polyline(first.path, { color: cssVar("--leg1"), weight: 6, opacity: 0.8 }).addTo(map);
-    L.polyline(second.path, { color: cssVar("--leg2"), weight: 4, opacity: 0.95, dashArray: "8 8" }).addTo(map);
+    view.path(first.path, { color: cssVar("--leg1"), weight: 6, opacity: 0.8 });
+    view.path(second.path, { color: cssVar("--leg2"), weight: 4, opacity: 0.95, dashed: true });
     bounds.push(...first.path, ...second.path);
   }
   for (const point of route.via.flat().filter(Boolean)) {
-    L.circleMarker([point.lat, point.lon], { radius: 4, color: cssVar("--via"), weight: 2, fillOpacity: 0.9 })
-      .bindTooltip(el("span", {}, point.name))
-      .addTo(map);
+    view.dot(point, { title: point.name });
     bounds.push([point.lat, point.lon]);
   }
-  for (const [key, badge, label] of PINS) {
+  PINS.forEach(([key, badge, label], order) => {
     const point = route.points[key];
-    if (!point) continue;
-    const icon = L.divIcon({ className: `pin pin-${key}`, html: badge, iconSize: [26, 26] });
-    L.marker([point.lat, point.lon], { icon, title: `${label}：${point.name}` })
-      .bindPopup(el("span", {}, `${label}：${point.name}`))
-      .addTo(map);
+    if (!point) return;
+    view.pin(point, { className: `pin-${key}`, badge, title: `${label}：${point.name}`, zIndex: order + 1 });
     bounds.push([point.lat, point.lon]);
-  }
-  keepFramed(container, bounds);
+  });
+  view.frame(bounds);
+  return view;
 }
 
 function drawOverviewMap(container) {
-  createMap(container);
+  const view = showMap(container);
   const bounds = [];
   for (const route of data.routes) {
     const point = route.points.start;
     if (!point) continue;
-    const flagged = Boolean(route.flags?.length);
-    L.circleMarker([point.lat, point.lon], {
-      radius: 7, color: cssVar("--surface"), weight: 2, fillOpacity: 0.95,
-      fillColor: cssVar(flagged ? "--warn-fg" : "--leg1"),
-    })
-      .bindTooltip(el("span", {}, route.title))
-      .on("click", () => { location.hash = routeHref(route.id); })
-      .addTo(map);
+    view.dot(point, {
+      className: route.flags?.length ? "marker-dot-route marker-dot-warn" : "marker-dot-route",
+      title: route.title,
+      onClick: () => { location.hash = routeHref(route.id); },
+    });
     bounds.push([point.lat, point.lon]);
   }
-  keepFramed(container, bounds);
+  view.frame(bounds);
 }
 
 function flagChips(route, withNotes) {
@@ -137,12 +98,10 @@ function factList(route) {
   return el("dl", { class: "facts" }, rows.map(([term, value]) => [el("dt", {}, term), el("dd", {}, value)]));
 }
 
-function googleMap(route) {
+function googleLink(route) {
   if (!route.google) return null;
-  return el("section", { class: "panel gmap" },
-    el("h2", {}, "Google 地圖步行路線"),
-    el("iframe", { src: route.google.embed, loading: "lazy", title: `${route.title} 的 Google 地圖步行路線` }),
-    el("p", {}, el("a", { href: route.google.open, target: "_blank", rel: "noopener" }, "在 Google 地圖開啟")));
+  return el("p", { class: "map-link" },
+    el("a", { href: route.google.open, target: "_blank", rel: "noopener" }, "在 Google 地圖開啟步行路線"));
 }
 
 function textSection(route) {
@@ -176,22 +135,22 @@ export function showRoute(id) {
       el("p", { class: "crumb" }, el("a", { href: "#" }, "← 全部路線")),
       el("h1", {}, route.title),
       el("p", { class: "meta" }, meta)),
-    flagChips(route, true),
+    flagChips(route, true) ?? "",
     el("div", { class: "route-body" },
       el("section", { class: "map-col" },
         route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
         mapBox,
         el("p", { class: "legend" },
-          el("span", { class: "l1" }, "第一段"), el("span", { class: "l2" }, "第二段"), el("span", { class: "lv" }, "沿途經過的點"))),
+          el("span", { class: "l1" }, "第一段"), el("span", { class: "l2" }, "第二段"), el("span", { class: "lv" }, "沿途經過的點"),
+          el("span", { class: "hint" }, "點標記可看街景")),
+        googleLink(route)),
       el("div", { class: "stack" },
         el("section", { class: "panel" }, el("h2", {}, "距離"), factList(route)),
-        googleMap(route),
         textSection(route),
         todoSection(route),
         el("section", { class: "panel", id: "comments", hidden: "" }))),
   );
-  drawRouteMap(mapBox, route);
-  renderComments(route);
+  renderComments(route, drawRouteMap(mapBox, route));
 }
 
 function routeSummary(route) {
