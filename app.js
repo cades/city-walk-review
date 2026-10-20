@@ -1,4 +1,4 @@
-import { formatMinutes, routeIdFromHash } from "./lib.js";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201040";
 
 const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}";
 const TILE_ATTRIBUTION = "© 內政部國土測繪中心";
@@ -16,6 +16,7 @@ const app = document.getElementById("app");
 let data;
 let map = null;
 let mapResizeObserver = null;
+let onlyFlagged = false;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -57,10 +58,29 @@ function resetView() {
   window.scrollTo(0, 0);
 }
 
-function drawMap(container, route) {
+function createMap(container) {
   map = L.map(container, { scrollWheelZoom: false });
-  window.routeMap = map;
   L.tileLayer(TILE_URL, { attribution: TILE_ATTRIBUTION, maxZoom: 19 }).addTo(map);
+  return map;
+}
+
+function keepFramed(container, bounds) {
+  const frame = () => {
+    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+    else map.setView(TAIWAN_CENTER, 7);
+  };
+  frame();
+  mapResizeObserver = new ResizeObserver(() => {
+    if (!map) return;
+    map.invalidateSize();
+    frame();
+  });
+  mapResizeObserver.observe(container);
+}
+
+function drawRouteMap(container, route) {
+  createMap(container);
+  window.routeMap = map;
   const bounds = [];
   const [first, second] = route.legs;
   if (first) {
@@ -83,23 +103,32 @@ function drawMap(container, route) {
       .addTo(map);
     bounds.push([point.lat, point.lon]);
   }
-  const frame = () => {
-    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
-    else map.setView(TAIWAN_CENTER, 7);
-  };
-  frame();
-  mapResizeObserver = new ResizeObserver(() => {
-    if (!map) return;
-    map.invalidateSize();
-    frame();
-  });
-  mapResizeObserver.observe(container);
+  keepFramed(container, bounds);
 }
 
-function flagList(route) {
+function drawOverviewMap(container) {
+  createMap(container);
+  const bounds = [];
+  for (const route of data.routes) {
+    const point = route.points.start;
+    if (!point) continue;
+    const flagged = Boolean(route.flags?.length);
+    L.circleMarker([point.lat, point.lon], {
+      radius: 7, color: cssVar("--surface"), weight: 2, fillOpacity: 0.95,
+      fillColor: cssVar(flagged ? "--warn-fg" : "--leg1"),
+    })
+      .bindTooltip(el("span", {}, route.title))
+      .on("click", () => { location.hash = routeHref(route.id); })
+      .addTo(map);
+    bounds.push([point.lat, point.lon]);
+  }
+  keepFramed(container, bounds);
+}
+
+function flagChips(route, withNotes) {
   const chips = [
     ...(route.flags || []).map((flag) => el("li", { class: "chip chip-warn" }, flag.label)),
-    ...(route.notes || []).map((note) => el("li", { class: "chip chip-info" }, note)),
+    ...(withNotes ? route.notes || [] : []).map((note) => el("li", { class: "chip chip-info" }, note)),
   ];
   return chips.length ? el("ul", { class: "chips", "aria-label": "警示" }, chips) : null;
 }
@@ -139,19 +168,24 @@ function todoSection(route) {
     el("ul", {}, route.todo.map((line) => el("li", {}, line.replace(/^-\s*/, "")))));
 }
 
+function circleOf(route) {
+  return data.circles.find((circle) => circle.routes.includes(route.id))?.name;
+}
+
 export function showRoute(id) {
   const route = data.routes.find((candidate) => candidate.id === id);
   if (!route) return showHome();
   resetView();
   document.title = `${route.title}｜城市散步路線檢閱`;
   const mapBox = el("div", { class: "map", role: "region", "aria-label": `${route.title} 地圖` });
-  const meta = [`路線包序號 ${route.seq}`, route.confidence ? `座標信心 ${route.confidence}` : null].filter(Boolean).join("・");
+  const meta = [circleOf(route), `路線包序號 ${route.seq}`, route.confidence ? `座標信心 ${route.confidence}` : null]
+    .filter(Boolean).join("・");
   app.append(
     el("section", {},
       el("p", { class: "crumb" }, el("a", { href: "#" }, "← 全部路線")),
       el("h1", {}, route.title),
       el("p", { class: "meta" }, meta)),
-    flagList(route),
+    flagChips(route, true),
     el("div", { class: "route-body" },
       el("section", { class: "map-col" },
         route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
@@ -165,18 +199,56 @@ export function showRoute(id) {
         todoSection(route),
         el("section", { class: "panel", id: "comments", hidden: "" }))),
   );
-  drawMap(mapBox, route);
+  drawRouteMap(mapBox, route);
+}
+
+function routeSummary(route) {
+  const total = route.totalM == null ? "全程算不出" : `全程 ${(route.totalM / 1000).toFixed(1)} 公里`;
+  const back = route.endToStartM == null ? null : `終點走回集合點 ${route.endToStartM} 公尺`;
+  return [total, back].filter(Boolean).join("・");
+}
+
+function routeRow(route) {
+  return el("li", { class: "route-row" },
+    el("a", { href: routeHref(route.id) }, route.title),
+    el("span", { class: "row-meta" }, routeSummary(route)),
+    flagChips(route, false) || el("span", { class: "row-meta" }, "沒有警示"));
+}
+
+function groupList() {
+  const groups = groupRoutes(data.routes, data.circles, onlyFlagged);
+  if (!groups.length) return el("p", { class: "notice" }, "目前沒有路線有警示。");
+  return el("div", { class: "groups" }, groups.map((group) =>
+    el("section", { class: "panel group" },
+      el("h2", {}, group.name, el("span", { class: "count" }, `${group.routes.length} 區`)),
+      el("ul", { class: "route-rows" }, group.routes.map(routeRow)))));
 }
 
 export function showHome() {
   resetView();
   document.title = "城市散步路線檢閱";
-  const routes = [...data.routes].sort((a, b) => a.seq - b.seq);
+  const flaggedCount = data.routes.filter((route) => route.flags?.length).length;
+  const mapBox = el("div", { class: "map", role: "region", "aria-label": "全部路線地圖" });
+  const listBox = el("div", {}, groupList());
+  const toggleLabel = () => (onlyFlagged ? "顯示全部路線" : `只看有警示的（${flaggedCount} 條）`);
+  const toggle = el("button", { type: "button", class: "toggle", "aria-pressed": String(onlyFlagged) }, toggleLabel());
+  toggle.addEventListener("click", () => {
+    onlyFlagged = !onlyFlagged;
+    toggle.setAttribute("aria-pressed", String(onlyFlagged));
+    toggle.textContent = toggleLabel();
+    listBox.replaceChildren(groupList());
+  });
   app.append(
-    el("h1", {}, "全部路線"),
-    el("ol", { class: "route-list" }, routes.map((route) =>
-      el("li", {}, el("a", { href: routeHref(route.id) }, route.title),
-        route.flags?.length ? `（${route.flags.length} 個警示）` : null))));
+    el("section", {},
+      el("h1", {}, "全部路線"),
+      el("p", { class: "meta" }, `${data.routes.length} 區，各一條環狀路線，依圈排列。點地圖上的點或路線名稱看細節。`)),
+    el("div", { class: "route-body home-body" },
+      el("section", { class: "map-col" },
+        mapBox,
+        el("p", { class: "legend" }, el("span", { class: "dot-ok" }, "沒有警示"), el("span", { class: "dot-warn" }, "有警示"))),
+      el("div", { class: "stack" }, el("div", { class: "toolbar" }, toggle), listBox)),
+  );
+  drawOverviewMap(mapBox);
 }
 
 function render() {

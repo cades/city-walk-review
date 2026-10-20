@@ -112,6 +112,31 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .legend .l1::before { background: var(--leg1); }
 .legend .l2::before { background: repeating-linear-gradient(90deg, var(--leg2) 0 5px, transparent 5px 9px); }
 .legend .lv::before { width: 8px; height: 8px; border-radius: 50%; background: var(--via); }
+.legend .dot-ok::before, .legend .dot-warn::before { width: 10px; height: 10px; border-radius: 50%; }
+.legend .dot-ok::before { background: var(--leg1); }
+.legend .dot-warn::before { background: var(--warn-fg); }
+
+.toolbar { display: flex; justify-content: flex-end; }
+.toggle {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+}
+.toggle[aria-pressed="true"] { background: var(--warn-bg); color: var(--warn-fg); border-color: transparent; }
+
+.groups { display: grid; gap: 16px; }
+.group h2 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.group h2 .count { color: var(--muted); font-size: 14px; font-weight: 400; }
+.route-rows { list-style: none; margin: 0; padding: 0; display: grid; }
+.route-row { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line); min-width: 0; }
+.route-row:first-child { border-top: 0; padding-top: 0; }
+.route-row > a { font-weight: 700; }
+.row-meta { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; }
 .facts dt { color: var(--muted); }
@@ -126,7 +151,6 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .gmap iframe { display: block; width: 100%; height: 380px; border: 0; border-radius: 8px; }
 .gmap p { margin: 8px 0 0; }
 
-.route-list { margin: 0; padding-left: 28px; display: grid; gap: 4px; }
 
 .pin {
   display: grid !important;
@@ -149,8 +173,13 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 
 @media (min-width: 900px) {
   .route-body { grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); gap: 24px; align-items: start; }
+  .home-body { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
   .map-col { position: sticky; top: 16px; }
   .map { height: calc(100vh - 120px); min-height: 420px; max-height: 900px; }
 }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (min-width: 1300px) {
+  .home-body .groups { grid-template-columns: 1fr 1fr; align-items: start; }
+}
