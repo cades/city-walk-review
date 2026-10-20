@@ -70,7 +70,7 @@ a { color: var(--accent); }
 .bar-meta { color: var(--muted); font-size: 13px; }
 
 main {
-  max-width: 1040px;
+  max-width: 1600px;
   margin: 0 auto;
   padding-block: 16px 48px;
   padding-left: max(16px, env(safe-area-inset-left, 0px));
@@ -105,8 +105,7 @@ h2 { font-size: 18px; margin: 0 0 8px; }
   min-width: 0;
 }
 
-.map { height: 420px; border-radius: 8px; border: 1px solid var(--line); }
-@media (max-width: 600px) { .map { height: 340px; } }
+.map { height: 360px; border-radius: 8px; border: 1px solid var(--line); }
 
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 8px 0 0; color: var(--muted); font-size: 14px; }
 .legend span::before { content: ""; display: inline-block; width: 18px; height: 4px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
@@ -144,10 +143,14 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .pin-station { background: var(--pin-station); }
 .pin-cafe { background: var(--pin-cafe); }
 
-@media (min-width: 900px) {
-  .route-body { display: grid; grid-template-columns: 3fr 2fr; gap: 20px; align-items: start; }
-}
+.route-body { display: grid; gap: 20px; }
 .route-body > * { min-width: 0; }
 .stack { display: grid; gap: 20px; }
+
+@media (min-width: 900px) {
+  .route-body { grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); gap: 24px; align-items: start; }
+  .map-col { position: sticky; top: 16px; }
+  .map { height: calc(100vh - 120px); min-height: 420px; max-height: 900px; }
+}
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

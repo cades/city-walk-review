@@ -15,6 +15,7 @@ const PINS = [
 const app = document.getElementById("app");
 let data;
 let map = null;
+let mapResizeObserver = null;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -45,6 +46,8 @@ function describePlace(point, meters) {
 }
 
 function resetView() {
+  mapResizeObserver?.disconnect();
+  mapResizeObserver = null;
   if (map) {
     map.remove();
     map = null;
@@ -80,8 +83,17 @@ function drawMap(container, route) {
       .addTo(map);
     bounds.push([point.lat, point.lon]);
   }
-  if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
-  else map.setView(TAIWAN_CENTER, 7);
+  const frame = () => {
+    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+    else map.setView(TAIWAN_CENTER, 7);
+  };
+  frame();
+  mapResizeObserver = new ResizeObserver(() => {
+    if (!map) return;
+    map.invalidateSize();
+    frame();
+  });
+  mapResizeObserver.observe(container);
 }
 
 function flagList(route) {
@@ -141,15 +153,14 @@ export function showRoute(id) {
       el("p", { class: "meta" }, meta)),
     flagList(route),
     el("div", { class: "route-body" },
-      el("div", { class: "stack" },
-        el("section", {},
-          route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
-          mapBox,
-          el("p", { class: "legend" },
-            el("span", { class: "l1" }, "第一段"), el("span", { class: "l2" }, "第二段"), el("span", { class: "lv" }, "沿途經過的點"))),
-        googleMap(route)),
+      el("section", { class: "map-col" },
+        route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
+        mapBox,
+        el("p", { class: "legend" },
+          el("span", { class: "l1" }, "第一段"), el("span", { class: "l2" }, "第二段"), el("span", { class: "lv" }, "沿途經過的點"))),
       el("div", { class: "stack" },
         el("section", { class: "panel" }, el("h2", {}, "距離"), factList(route)),
+        googleMap(route),
         textSection(route),
         todoSection(route),
         el("section", { class: "panel", id: "comments", hidden: "" }))),
