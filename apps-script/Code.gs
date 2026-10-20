@@ -1,3 +1,4 @@
+/** @OnlyCurrentDoc */
 // Backend for the city walk route review site. Paste into the Apps Script editor bound to the
 // 「城市散步路線檢閱_意見」 spreadsheet. Script properties: CLIENT_ID (OAuth web client ID) and
 // TOKEN_SECRET (created by setup()). Nothing secret lives in this file.
