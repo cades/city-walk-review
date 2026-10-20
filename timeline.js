@@ -16,16 +16,24 @@ function clearLayer(mapView, layer) {
   mapView.draw(() => layer.clear());
 }
 
-function timetableView(route, timeline) {
-  return el("table", { class: "timetable" },
-    el("caption", {}, "第幾分鐘到哪裡"),
-    el("tbody", {}, timetable(route, timeline).map((row) =>
-      el("tr", row.kind === "back" ? { class: "back" } : {},
-        el("td", {}, `${Math.round(row.minute)}′`),
-        el("td", {}, row.text)))));
+function timetableView(route, timeline, jumpTo) {
+  const rows = timetable(route, timeline).map((row) => {
+    const minute = Math.round(row.minute);
+    const label = `第 ${minute} 分鐘：${row.text}，在地圖上看`;
+    const button = el("button", { type: "button", class: `timetable-row ${row.kind}`, "aria-label": label },
+      el("span", { class: "timetable-minute" }, `${minute}′`),
+      el("span", { class: "timetable-text" }, row.text));
+    button.addEventListener("click", () => jumpTo(row.minute));
+    return el("li", {}, button);
+  });
+  return el("section", { class: "timetable", "aria-labelledby": "timetable-title" },
+    el("div", { class: "timetable-head" },
+      el("h2", { id: "timetable-title" }, "第幾分鐘到哪裡"),
+      el("p", { class: "timetable-hint" }, "點一列，在地圖上看那一分鐘")),
+    el("ol", { class: "timetable-rows" }, rows));
 }
 
-function showGlance({ route, timeline, mapView, layer, panel, colors }) {
+function showGlance({ route, timeline, mapView, layer, panel, colors, jumpTo }) {
   const [leg1, leg2] = timeline.legs;
   layer.line(leg1.path, { color: colors.leg1, weight: 6, opacity: 0.8, arrows: true });
   const leg2Line = layer.line(leg2.path, { color: colors.leg2, weight: 4, opacity: 0.95, dashed: true, arrows: true, zIndex: 1 });
@@ -36,7 +44,7 @@ function showGlance({ route, timeline, mapView, layer, panel, colors }) {
   for (const mark of minuteMarks(timeline)) {
     layer.label(mark.point, { text: String(mark.minute), className: `leg${mark.legIndex + 1}` });
   }
-  panel.replaceChildren(timetableView(route, timeline));
+  panel.replaceChildren(timetableView(route, timeline, jumpTo));
   return () => {
     stopShifting();
     clearLayer(mapView, layer);
@@ -58,18 +66,19 @@ function dragLegend(timeline) {
     timeline.backtrack.length ? el("span", { class: "lb" }, "走回頭路") : null);
 }
 
-function showDrag({ route, timeline, mapView, layer, panel, colors }) {
+function showDrag({ route, timeline, mapView, layer, panel, colors, legend, minute: jumpedTo }) {
   const pieces = trailPieces(timeline);
   timeline.legs.forEach((leg, index) => layer.line(leg.path, { color: colors[`leg${index + 1}`], weight: 6, opacity: 0.35 }));
   const trail = pieces.map((piece) => layer.line([], { color: colors[piece.kind], weight: 5, zIndex: 1 }));
   const dot = layer.mover(timeline.legs[0].path[0]);
 
   const status = el("p", { class: "timeline-status" });
+  let minute = jumpedTo ?? 0;
   const slider = el("input", {
-    type: "range", min: "0", max: String(timeline.totalMin * SLIDER_STEPS_PER_MINUTE), step: "1", value: "0", "aria-label": "第幾分鐘",
+    type: "range", min: "0", max: String(timeline.totalMin * SLIDER_STEPS_PER_MINUTE), step: "1",
+    value: String(Math.round(minute * SLIDER_STEPS_PER_MINUTE)), "aria-label": "第幾分鐘",
   });
   const play = el("button", { type: "button", class: "timeline-play" }, "▶ 播放");
-  let minute = 0;
   let timer = null;
 
   function render() {
@@ -106,19 +115,22 @@ function showDrag({ route, timeline, mapView, layer, panel, colors }) {
   });
 
   panel.replaceChildren(status, el("div", { class: "timeline-controls" }, play, slider, band(timeline, pieces)), dragLegend(timeline));
-  const mapColumn = panel.closest(".map-col");
-  mapColumn?.classList.add("drag-view");
+  legend?.classList.add("drag-view");
   render();
+  if (jumpedTo != null) slider.focus({ preventScroll: true });
   return () => {
     stop();
-    mapColumn?.classList.remove("drag-view");
+    legend?.classList.remove("drag-view");
     clearLayer(mapView, layer);
   };
 }
 
-export function mountTimeline(route, mapView, { toolbar, panel }) {
+export function mountTimeline(route, mapView, { toolbar, panel, legend }) {
   const timeline = buildTimeline(route);
-  if (!timeline) return;
+  if (!timeline) {
+    panel.replaceChildren(el("p", { class: "notice" }, "這條路線缺座標，排不出時間表。"));
+    return;
+  }
   const views = { glance: showGlance, drag: showDrag };
   const layers = { glance: mapView.layer(), drag: mapView.layer() };
   const colors = { leg1: cssVar("--leg1"), leg2: cssVar("--leg2"), back: cssVar("--back") };
@@ -131,12 +143,17 @@ export function mountTimeline(route, mapView, { toolbar, panel }) {
     return [key, button];
   });
 
-  function show(key) {
-    if (key === shown) return;
+  function show(key, minute) {
+    if (key === shown && minute == null) return;
     teardown();
     shown = key;
     for (const [candidate, button] of buttons) button.setAttribute("aria-pressed", String(candidate === key));
-    teardown = views[key]({ route, timeline, mapView, layer: layers[key], panel, colors });
+    teardown = views[key]({ route, timeline, mapView, layer: layers[key], panel, colors, legend, minute, jumpTo });
+  }
+
+  function jumpTo(minute) {
+    show("drag", minute);
+    toolbar.scrollIntoView({ block: "nearest" });
   }
 
   toolbar.setAttribute("role", "group");

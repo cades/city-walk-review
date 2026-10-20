@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildTimeline, describeMoment, escapeHtml, filterRoutes, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
-  metersPerPixel, minuteMarks, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable, trailPieces, walkedPart,
+  metersPerPixel, minuteMarks, neighborRoutes, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable, trailPieces,
+  walkedPart,
 } from "../lib.js";
 
 test("formatMinutes uses 70 m per minute", () => {
@@ -66,6 +67,30 @@ test("filterRoutes treats 臺 and 台 as the same character", () => {
 
 test("filterRoutes keeps a whole circle when the circle name matches", () => {
   assert.deepEqual(searchShape(filterRoutes(searchGroups, "花東")), [["花東圈", ["花蓮區", "台東區"]]]);
+});
+
+const neighborCircles = [
+  { name: "花東圈", routes: ["花蓮區", "台東區"] },
+  { name: "蘭陽圈", routes: ["宜蘭區", "羅東區", "蘇澳區"] },
+  { name: "離島", routes: ["基宜圈_馬祖"] },
+];
+
+test("neighborRoutes gives the routes before and after inside a circle", () => {
+  assert.deepEqual(neighborRoutes(neighborCircles, "羅東區"), { prev: "宜蘭區", next: "蘇澳區" });
+});
+
+test("neighborRoutes crosses into the next and previous circle", () => {
+  assert.deepEqual(neighborRoutes(neighborCircles, "台東區"), { prev: "花蓮區", next: "宜蘭區" });
+  assert.deepEqual(neighborRoutes(neighborCircles, "宜蘭區"), { prev: "台東區", next: "羅東區" });
+});
+
+test("neighborRoutes has no previous route for the first and no next route for the last", () => {
+  assert.deepEqual(neighborRoutes(neighborCircles, "花蓮區"), { prev: null, next: "台東區" });
+  assert.deepEqual(neighborRoutes(neighborCircles, "基宜圈_馬祖"), { prev: "蘇澳區", next: null });
+});
+
+test("neighborRoutes gives neither neighbour for an unknown route", () => {
+  assert.deepEqual(neighborRoutes(neighborCircles, "不存在的區"), { prev: null, next: null });
 });
 
 test("isInAppBrowser detects LINE, Facebook, Instagram", () => {

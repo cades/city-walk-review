@@ -118,10 +118,19 @@ a { color: var(--accent); text-underline-offset: 0.2em; text-decoration-thicknes
 a:hover { text-decoration-thickness: 2px; }
 
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 h1 { font-size: var(--text-xl); line-height: var(--leading-tight); letter-spacing: 0.02em; margin: 0; text-wrap: balance; }
 h2 { font-size: var(--text-lg); line-height: var(--leading-tight); margin: 0 0 var(--space-2); }
-.crumb { margin: 0 0 var(--space-1); font-size: var(--text-sm); }
 .meta { margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--text-sm); }
 
 /* Header */
@@ -212,6 +221,8 @@ a.card:hover { background: var(--surface-raised); border-color: var(--line-stron
 }
 .badge-warn { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-line); }
 .badge-info { background: var(--info-bg); color: var(--info-ink); border-color: var(--info-line); }
+button.badge { font-family: inherit; cursor: pointer; }
+button.badge-warn:hover { border-color: var(--warn-ink); }
 .badge-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .badge-list .badge { padding: 2px 10px; font-size: var(--text-sm); font-weight: 400; white-space: normal; }
 
@@ -316,7 +327,7 @@ a.card:hover { background: var(--surface-raised); border-color: var(--line-stron
 .tab[aria-selected="true"]::after {
   content: "";
   position: absolute;
-  inset: auto var(--space-2) -1px;
+  inset: auto var(--space-2) 0;
   height: 3px;
   border-radius: 3px 3px 0 0;
   background: var(--accent);
@@ -418,6 +429,7 @@ main[data-view="home"] { max-width: none; padding: 0; gap: 0; }
   color: var(--ink);
   font-size: var(--text-xs);
   box-shadow: var(--shadow-md);
+  pointer-events: none;
 }
 
 .home-list {
@@ -511,13 +523,98 @@ main[data-view="home"] + .footer { display: none; }
 .leg-bar .l1 { background: var(--leg1); border-radius: 2px; }
 .leg-bar .l2 { background: repeating-linear-gradient(90deg, var(--leg2) 0 4px, transparent 4px 6px); border-radius: 2px; }
 
-/* Route page */
+/* Route page: a title band, then the map beside (desktop) or pinned above (phone) a tabbed side panel */
 
-.route-body { display: grid; gap: var(--space-5); }
-.route-body > * { min-width: 0; }
-.stack { display: grid; gap: var(--space-5); }
+main[data-view="route"] { max-width: none; padding: 0; gap: 0; }
+main[data-view="route"] + .footer { display: none; }
 
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--space-4); margin: 0; }
+.route-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "back steps" "heading heading";
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--gutter-right) var(--space-3) var(--gutter-left);
+}
+.route-back { grid-area: back; font-size: var(--text-sm); white-space: nowrap; }
+.route-heading { grid-area: heading; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); min-width: 0; }
+.route-title { font-size: var(--text-lg); font-weight: 400; }
+.route-title strong { font-weight: 700; }
+.route-heading .meta { flex-basis: 100%; margin: 0; }
+
+.route-steps { grid-area: steps; display: flex; justify-content: flex-end; gap: var(--space-2); min-width: 0; }
+.route-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.route-step > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+a.route-step:hover { background: var(--surface-raised); border-color: var(--ink-faint); }
+a.route-step[data-rel="prev"]::before { content: "‹"; }
+a.route-step[data-rel="next"]::after { content: "›"; }
+a.route-step::before, a.route-step::after { color: var(--ink-muted); font-size: 1.3em; line-height: 1; }
+.route-step-label { display: none; color: var(--ink-muted); }
+.route-step[aria-disabled="true"] { border-style: dashed; border-color: var(--line-strong); background: none; color: var(--ink-muted); }
+
+/* Phones: the map stays pinned at the top while the panel below it scrolls; the tab strip pins right under the map. */
+.route-work { --route-map-h: max(45svh, 200px); --route-tabs-h: 45px; display: flex; flex-direction: column; }
+.route-map {
+  order: -1;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  height: var(--route-map-h);
+  background: var(--surface);
+}
+.route-map .map { flex: 1; min-height: 0; height: auto; border: 0; border-radius: 0; }
+.map-notice { border-width: 0 0 1px; border-radius: 0; font-size: var(--text-sm); }
+.map-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  min-height: 32px;
+  padding: var(--space-1) var(--gutter-right) var(--space-1) var(--gutter-left);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-xs);
+}
+.route-legend { margin: 0; gap: var(--space-1) var(--space-3); font-size: var(--text-xs); }
+.route-legend span::before { width: 14px; margin-right: 5px; }
+.route-legend .lv::before { width: 8px; }
+.route-legend .hint { color: var(--ink-muted); }
+.map-link { flex: none; font-size: var(--text-xs); white-space: nowrap; }
+/* The drag view draws both legs solid and has its own legend, so the dashed leg swatches under the map would contradict it. */
+.route-legend.drag-view > .l1, .route-legend.drag-view > .l2 { display: none; }
+
+.route-side { min-width: 0; background: var(--surface); }
+.route-tabs {
+  position: sticky;
+  top: var(--route-map-h);
+  z-index: 2;
+  gap: 0;
+  padding: 0 calc(var(--gutter-right) - var(--space-2)) 0 calc(var(--gutter-left) - var(--space-2));
+  background: var(--surface);
+}
+.route-tabs .tab { flex: none; padding: var(--space-2); }
+.tab-panel { display: grid; align-content: start; gap: var(--space-4); padding: var(--space-4) var(--gutter-right) var(--space-6) var(--gutter-left); }
+.tab-panel h2 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
+.side-section { min-width: 0; }
+.side-footer { margin: 0; padding: 0 var(--gutter-right) var(--space-6) var(--gutter-left); color: var(--ink-muted); font-size: var(--text-xs); }
+
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px var(--space-4); margin: 0; font-size: var(--text-sm); }
 .facts dt { color: var(--ink-muted); }
 .facts dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; }
 
@@ -526,19 +623,40 @@ main[data-view="home"] + .footer { display: none; }
 .text dt:not(:first-child) { margin-top: var(--space-3); }
 .text dd { margin: 0; overflow-wrap: anywhere; }
 
-.todo ul { margin: 0; padding-left: var(--space-5); display: grid; gap: 6px; }
+.todo ul { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-2); }
 
-.timeline-toolbar { margin-bottom: var(--space-2); }
+/* A jump from the timetable lands on the slider; on phones keep it clear of the pinned map and tabs. */
+.timeline-toolbar { scroll-margin-top: calc(var(--route-map-h) + var(--route-tabs-h) + var(--space-4)); }
 .timeline-toolbar:empty { display: none; }
-
-.timeline-panel { margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
 .timeline-panel:empty { display: none; }
 
-.timetable { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
-.timetable caption { text-align: left; font-weight: 700; padding-bottom: 6px; }
-.timetable td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: top; }
-.timetable td:first-child { width: 3.2em; padding-left: 0; text-align: right; white-space: nowrap; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-.timetable tr.back td { color: var(--back); }
+.timetable-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-3); }
+.timetable-hint { margin: 0 0 var(--space-1); color: var(--ink-muted); font-size: var(--text-xs); }
+.timetable-rows { margin: 0; padding: 0; list-style: none; border-bottom: 1px solid var(--line); }
+.timetable-row {
+  display: grid;
+  grid-template-columns: 2.6em minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--space-3);
+  width: 100%;
+  padding: 6px var(--space-2) 6px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+}
+.timetable-row::after { content: "›"; color: var(--ink-faint); font-size: 1.2em; line-height: 1; }
+.timetable-row:hover { background: var(--paper); }
+.timetable-row:hover::after { color: var(--accent); }
+.timetable-row:focus-visible { outline-offset: -2px; border-radius: var(--radius-sm); }
+.timetable-minute { text-align: right; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.timetable-row.back { color: var(--back); }
+.timetable-row.stop .timetable-text { font-weight: 700; }
 
 .timeline-status { margin: 0 0 var(--space-2); min-height: 3.2em; font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
 .timeline-back { display: inline-block; color: var(--back); }
@@ -551,12 +669,13 @@ main[data-view="home"] + .footer { display: none; }
 .timeline-band .stop { background: var(--stop); }
 .timeline-band .leg2 { background: var(--leg2); }
 .timeline-band .back { background: var(--back); }
+.timeline-legend { margin-top: var(--space-3); }
 .timeline-legend .l2::before { background: var(--leg2); }
-/* The drag view draws both legs solid and has its own legend, so the dashed leg swatches below the map would contradict it. */
-.drag-view > .legend > .l1, .drag-view > .legend > .l2 { display: none; }
 
 /* Comments */
 
+/* Google's sign-in button frame is a light page; matching its colour scheme keeps a white box from showing around it in dark mode. */
+#comments iframe { color-scheme: light; }
 .comment-tools { margin: 0 0 var(--space-3); color: var(--ink-muted); font-size: var(--text-sm); }
 .comment-form { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); }
 .comment-form label { font-weight: 700; }
@@ -613,15 +732,34 @@ main[data-view="home"] + .footer { display: none; }
   /* Keyboard focus scrolls cards into view below the sticky search box, not under it. */
   .route-card { scroll-margin-top: calc(var(--header-h) + 140px); }
 
-  .route-body { grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); gap: var(--space-6); align-items: start; }
-  .map-col { position: sticky; top: calc(var(--header-h) + var(--space-4)); }
-  .map { height: calc(100vh - var(--header-h) - 120px); min-height: 420px; max-height: 900px; }
-  /* Keep the map, the switch and the slider on one screen; a long timetable scrolls inside the column. */
-  .map-col:has(.timeline-panel:not(:empty)) { max-height: calc(100vh - var(--header-h) - 32px); overflow-y: auto; scrollbar-gutter: stable; }
-  .map-col:has(.timeline-panel:not(:empty)) .map { height: calc(100vh - var(--header-h) - 340px); min-height: 360px; }
+  main[data-view="route"] { height: calc(100dvh - var(--header-h)); min-height: 520px; grid-template-rows: auto minmax(0, 1fr); }
+  .route-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "back heading steps";
+    gap: var(--space-5);
+    padding: var(--space-3) var(--space-6);
+    border-bottom: 1px solid var(--line);
+  }
+  .route-heading { flex-wrap: nowrap; align-items: baseline; padding-left: var(--space-5); border-left: 1px solid var(--line); }
+  .route-title { flex: none; font-size: var(--text-xl); }
+  .route-heading .meta { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route-step-label { display: inline; }
+
+  /* Desktop: the map fills what is left of the window and the side panel scrolls on its own. */
+  .route-work { display: grid; grid-template-columns: minmax(0, 1fr) clamp(420px, 32vw, 460px); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  .route-map { position: static; height: auto; min-height: 0; }
+  .map-foot { padding: var(--space-1) var(--space-4); border-bottom: 0; }
+  .route-side { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); }
+  .route-tabs { position: static; flex: none; padding: 0 var(--space-3); }
+  .route-tabs .tab { padding: var(--space-2) var(--space-3); }
+  .tab-panels { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .tab-panel { padding: var(--space-4) var(--space-5) var(--space-6); }
+  .side-footer { padding: 0 var(--space-5) var(--space-5); }
+  .timeline-toolbar { scroll-margin-top: var(--space-4); }
 }
 
 @media (max-width: 599px) {
+  .wide-only { display: none; }
   .timeline-status { min-height: 4.8em; }
   .timeline-controls { grid-template-columns: minmax(0, 1fr); }
   .timeline-play { justify-self: start; }

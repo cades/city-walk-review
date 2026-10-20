@@ -37,6 +37,13 @@ export function filterRoutes(groups, query) {
     .filter((group) => group.routes.length);
 }
 
+export function neighborRoutes(circles, id) {
+  const order = circles.flatMap((circle) => circle.routes);
+  const index = order.indexOf(id);
+  if (index === -1) return { prev: null, next: null };
+  return { prev: order[index - 1] ?? null, next: order[index + 1] ?? null };
+}
+
 export function isInAppBrowser(userAgent) {
   return IN_APP_BROWSER.test(userAgent);
 }
