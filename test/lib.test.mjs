@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildTimeline, describeMoment, escapeHtml, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
-  metersPerPixel, minuteMarks, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable,
+  metersPerPixel, minuteMarks, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable, trailPieces, walkedPart,
 } from "../lib.js";
 
 test("formatMinutes uses 70 m per minute", () => {
@@ -124,4 +124,31 @@ test("offsetPath and metersPerPixel", () => {
   const shifted = offsetPath(north, 10);
   assert.ok(shifted[0][1] > 121.5);
   assert.ok(Math.abs(metersPerPixel(0, 0) - 156543.03392) < 1e-6);
+});
+
+test("trailPieces split each leg where the route backtracks", () => {
+  const tl = buildTimeline(sampleRoute);
+  const pieces = trailPieces(tl);
+  assert.deepEqual(pieces.map((piece) => [piece.kind, piece.legIndex]), [["leg1", 0], ["leg2", 1], ["back", 1], ["leg2", 1]]);
+  assert.deepEqual([pieces[2].fromM, pieces[2].toM], [1010, 1960]);
+  assert.ok(Math.abs(pieces[2].toMin - 38) < 0.5);
+  assert.equal(pieces.at(-1).toMin, 44);
+
+  const across = buildTimeline({ ...sampleRoute, timeline: { ...sampleRoute.timeline, backtrack: [[500, 700], [950, 1050]] } });
+  assert.deepEqual(trailPieces(across).map((piece) => [piece.kind, piece.legIndex]),
+    [["leg1", 0], ["back", 0], ["leg1", 0], ["back", 0], ["back", 1], ["leg2", 1]]);
+});
+
+test("walkedPart ends where the moving dot is", () => {
+  const near = (a, b) => assert.ok(Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9, `${a} vs ${b}`);
+  const tl = buildTimeline(sampleRoute);
+  const [first, beforeBack, back, afterBack] = trailPieces(tl);
+  const halfway = walkedPart(tl, first, 7);
+  assert.deepEqual(halfway[0], sampleRoute.legs[0].path[0]);
+  near(halfway.at(-1), positionAt(tl, 7).point);
+  assert.deepEqual(walkedPart(tl, first, 20), sampleRoute.legs[0].path);
+  assert.deepEqual(walkedPart(tl, beforeBack, 20), []);
+  near(walkedPart(tl, back, 30).at(-1), positionAt(tl, 30).point);
+  assert.deepEqual(walkedPart(tl, afterBack, 30), []);
+  near(walkedPart(tl, afterBack, 44).at(-1), sampleRoute.legs[1].path.at(-1));
 });

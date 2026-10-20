@@ -9,3 +9,7 @@ export function el(tag, attrs = {}, ...children) {
   }
   return node;
 }
+
+export function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}

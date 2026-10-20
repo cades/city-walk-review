@@ -1,7 +1,8 @@
-import { el } from "./dom.js?v=202610201436";
-import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201436";
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201436";
-import { showMap } from "./map.js?v=202610201436";
+import { cssVar, el } from "./dom.js?v=202610202200";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610202200";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610202200";
+import { showMap } from "./map.js?v=202610202200";
+import { mountTimeline } from "./timeline.js?v=202610202200";
 
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
@@ -16,10 +17,6 @@ const app = document.getElementById("app");
 let data;
 let onlyFlagged = false;
 let commentCounts = null;
-
-function cssVar(name) {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
 
 function routeHref(id) {
   return `#${encodeURIComponent(id)}`;
@@ -43,8 +40,10 @@ function drawRouteMap(container, route) {
   const bounds = [];
   const [first, second] = route.legs;
   if (first) {
-    view.path(first.path, { color: cssVar("--leg1"), weight: 6, opacity: 0.8 });
-    view.path(second.path, { color: cssVar("--leg2"), weight: 4, opacity: 0.95, dashed: true });
+    if (!route.timeline) {
+      view.path(first.path, { color: cssVar("--leg1"), weight: 6, opacity: 0.8 });
+      view.path(second.path, { color: cssVar("--leg2"), weight: 4, opacity: 0.95, dashed: true });
+    }
     bounds.push(...first.path, ...second.path);
   }
   for (const point of route.via.flat().filter(Boolean)) {
@@ -128,6 +127,8 @@ export function showRoute(id) {
   resetView();
   document.title = `${route.title}｜城市散步路線檢閱`;
   const mapBox = el("div", { class: "map", role: "region", "aria-label": `${route.title} 地圖` });
+  const toolbar = el("div", { class: "timeline-toolbar" });
+  const panel = el("div", { class: "timeline-panel" });
   const meta = [circleOf(route), `路線包序號 ${route.seq}`, route.confidence ? `座標信心 ${route.confidence}` : null]
     .filter(Boolean).join("・");
   app.append(
@@ -139,10 +140,12 @@ export function showRoute(id) {
     el("div", { class: "route-body" },
       el("section", { class: "map-col" },
         route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
+        toolbar,
         mapBox,
         el("p", { class: "legend" },
           el("span", { class: "l1" }, "第一段"), el("span", { class: "l2" }, "第二段"), el("span", { class: "lv" }, "沿途經過的點"),
           el("span", { class: "hint" }, "點標記可看街景")),
+        panel,
         googleLink(route)),
       el("div", { class: "stack" },
         el("section", { class: "panel" }, el("h2", {}, "距離"), factList(route)),
@@ -150,7 +153,9 @@ export function showRoute(id) {
         todoSection(route),
         el("section", { class: "panel", id: "comments", hidden: "" }))),
   );
-  renderComments(route, drawRouteMap(mapBox, route));
+  const mapView = drawRouteMap(mapBox, route);
+  mountTimeline(route, mapView, { toolbar, panel });
+  renderComments(route, mapView);
 }
 
 function routeSummary(route) {

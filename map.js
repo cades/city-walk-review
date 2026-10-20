@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610201436";
-import { el } from "./dom.js?v=202610201436";
-import { headingTo, latLngOf } from "./lib.js?v=202610201436";
+import { CONFIG } from "./config.js?v=202610202200";
+import { el } from "./dom.js?v=202610202200";
+import { headingTo, latLngOf } from "./lib.js?v=202610202200";
 
 const TAIWAN = { lat: 23.7, lng: 121.0 };
 const FRAME_PADDING = 24;
@@ -87,7 +87,9 @@ class Layer {
       }
       if (arrows) {
         icons.push({
-          icon: { path: lib.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.5, strokeColor: color, strokeOpacity: opacity, fillColor: color, fillOpacity: opacity },
+          // A white outline keeps the arrow visible on top of a line of the same colour.
+          icon: { path: lib.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, strokeColor: "#fff", strokeWeight: 1.5, strokeOpacity: 1, fillColor: color, fillOpacity: 1 },
+          offset: "40px",
           repeat: "80px",
         });
       }
@@ -99,6 +101,7 @@ class Layer {
         strokeOpacity: dashed ? 0 : opacity,
         zIndex,
         icons,
+        clickable: false,
       }));
       return { setPoints: (next) => polyline.setPath(next.map(toLatLng)) };
     });

@@ -8,6 +8,8 @@
   --accent: #1d5c88;
   --leg1: #0e7a6b;
   --leg2: #c26400;
+  --back: #7b3fe4;
+  --stop: #9aa0a6;
   --via: #4a5563;
   --warn-bg: #fbe9e6;
   --warn-fg: #9f2a1c;
@@ -30,6 +32,7 @@
     --accent: #84b8df;
     --leg1: #36b9a5;
     --leg2: #f0a23e;
+    --back: #b794f6;
     --via: #c3cad4;
     --warn-bg: #3a1f1b;
     --warn-fg: #ffa597;
@@ -154,7 +157,7 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 
 
 /* Google anchors marker content at its bottom centre; shifting down half the height centres the badge on the point. */
-.pin, .marker-dot { transform: translateY(50%); }
+.pin, .marker-dot, .minute-mark, .moving-dot { transform: translateY(50%); }
 .pin {
   display: grid;
   place-items: center;
@@ -174,6 +177,31 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .marker-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--via); border: 2px solid var(--surface); }
 .marker-dot-route { width: 16px; height: 16px; background: var(--leg1); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); }
 .marker-dot-warn { background: var(--warn-fg); }
+.minute-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--leg1);
+  background: var(--surface);
+  color: var(--fg);
+  font: 700 12px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.minute-mark.leg2 { border-color: var(--leg2); }
+/* gmpClickable: false still swallows clicks; letting them through keeps comment pins and the pins underneath reachable. */
+gmp-advanced-marker:has(> .minute-mark, > .moving-dot) { pointer-events: none; }
+/* The dot has to stand out on both the light and the dark map, so it keeps fixed colours. */
+.moving-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #1c2430;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
 /* Google's info window stays white in dark mode, so its text keeps the light-theme colours. */
 .info { max-width: 240px; color: #1c2430; font: 14px/1.5 var(--font); }
 .info p { margin: 0 0 6px; }
@@ -256,4 +284,67 @@ h2 { font-size: 18px; margin: 0 0 8px; }
   padding-right: max(16px, env(safe-area-inset-right, 0px));
   color: var(--muted);
   font-size: 13px;
+}
+
+.timeline-toolbar { display: flex; width: fit-content; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--surface); }
+.timeline-toolbar:empty { display: none; }
+.timeline-toolbar button {
+  font: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  padding: 6px 18px;
+  border: 0;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+}
+.timeline-toolbar button + button { border-left: 1px solid var(--line); }
+.timeline-toolbar button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+
+.timeline-panel { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.timeline-panel:empty { display: none; }
+
+.timetable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.timetable caption { text-align: left; font-weight: 700; padding-bottom: 6px; }
+.timetable td { padding: 5px 6px; border-top: 1px solid var(--line); vertical-align: top; }
+.timetable td:first-child { width: 3.2em; padding-left: 0; text-align: right; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.timetable tr.back td { color: var(--back); }
+
+.timeline-status { margin: 0 0 8px; min-height: 3.2em; font-size: 15px; line-height: 1.6; font-variant-numeric: tabular-nums; }
+.timeline-back { display: inline-block; color: var(--back); }
+
+.timeline-controls { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 12px; }
+.timeline-play {
+  font: inherit;
+  font-size: 14px;
+  min-height: 40px;
+  min-width: 6.5em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.timeline-controls input[type="range"] { width: 100%; height: 32px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.timeline-band { grid-column: 2; display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
+.timeline-band .leg1 { background: var(--leg1); }
+.timeline-band .stop { background: var(--stop); }
+.timeline-band .leg2 { background: var(--leg2); }
+.timeline-band .back { background: var(--back); }
+.timeline-legend .l2::before { background: var(--leg2); }
+.legend .ls::before { background: var(--stop); }
+.legend .lb::before { background: var(--back); }
+
+/* Keep the map, the switch and the slider on one screen on desktop; a long timetable scrolls inside the column. */
+@media (min-width: 900px) {
+  .map-col:has(.timeline-panel:not(:empty)) { max-height: calc(100vh - 32px); overflow-y: auto; scrollbar-gutter: stable; }
+  .map-col:has(.timeline-panel:not(:empty)) .map { height: calc(100vh - 340px); min-height: 360px; }
+}
+
+@media (max-width: 599px) {
+  .timeline-status { min-height: 4.8em; }
+  .timeline-controls { grid-template-columns: minmax(0, 1fr); }
+  .timeline-play { justify-self: start; }
+  .timeline-band { grid-column: 1; }
 }

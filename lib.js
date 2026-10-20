@@ -98,14 +98,15 @@ function legSpan(leg) {
   return leg.cum.at(-1);
 }
 
+function minuteAlong(leg, localMeters) {
+  const span = legSpan(leg);
+  const fraction = span ? Math.min(Math.max(localMeters / span, 0), 1) : 0;
+  return leg.fromMin + fraction * (leg.toMin - leg.fromMin);
+}
+
 export function minuteAtMeter(timeline, meters) {
   const [leg1, leg2] = timeline.legs;
-  const along = (leg, local) => {
-    const span = legSpan(leg);
-    const fraction = span ? Math.min(Math.max(local / span, 0), 1) : 0;
-    return leg.fromMin + fraction * (leg.toMin - leg.fromMin);
-  };
-  return meters <= leg2.fromM ? along(leg1, meters) : along(leg2, meters - leg2.fromM);
+  return meters <= leg2.fromM ? minuteAlong(leg1, meters) : minuteAlong(leg2, meters - leg2.fromM);
 }
 
 function pointAtLeg(leg, localMeters) {
@@ -154,6 +155,41 @@ export function minuteMarks(timeline, every = 5) {
     marks.push({ minute, point, legIndex: minute < timeline.stop.fromMin ? 0 : 1 });
   }
   return marks;
+}
+
+function metersWalked(timeline, minute) {
+  const [leg1, leg2] = timeline.legs;
+  const walkedOn = (leg) => Math.min(Math.max((minute - leg.fromMin) / (leg.toMin - leg.fromMin), 0), 1) * legSpan(leg);
+  return minute < leg2.fromMin ? walkedOn(leg1) : leg2.fromM + walkedOn(leg2);
+}
+
+function legSlice(leg, fromLocal, toLocal) {
+  const start = pointAtLeg(leg, fromLocal);
+  const end = pointAtLeg(leg, toLocal);
+  return [start.point, ...leg.path.slice(start.vertex, end.vertex), end.point];
+}
+
+export function trailPieces(timeline) {
+  const pieces = [];
+  timeline.legs.forEach((leg, legIndex) => {
+    const legEnd = leg.fromM + legSpan(leg);
+    const cuts = timeline.backtrack.flatMap((range) => [range.fromM, range.toM]).filter((m) => m > leg.fromM && m < legEnd);
+    const bounds = [leg.fromM, ...cuts.sort((a, b) => a - b), legEnd];
+    for (let i = 1; i < bounds.length; i += 1) {
+      const [fromM, toM] = [bounds[i - 1], bounds[i]];
+      if (toM <= fromM) continue;
+      const kind = isBacktrackingAt(timeline, (fromM + toM) / 2) ? "back" : `leg${legIndex + 1}`;
+      const [fromMin, toMin] = [minuteAlong(leg, fromM - leg.fromM), minuteAlong(leg, toM - leg.fromM)];
+      pieces.push({ kind, legIndex, fromM, toM, fromMin, toMin });
+    }
+  });
+  return pieces;
+}
+
+export function walkedPart(timeline, piece, minute) {
+  const leg = timeline.legs[piece.legIndex];
+  const toM = Math.min(piece.toM, metersWalked(timeline, minute));
+  return toM > piece.fromM ? legSlice(leg, piece.fromM - leg.fromM, toM - leg.fromM) : [];
 }
 
 function nearestVertexMeters(path, cum, place) {
