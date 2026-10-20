@@ -106,9 +106,12 @@ function showDrag({ route, timeline, mapView, layer, panel, colors }) {
   });
 
   panel.replaceChildren(status, el("div", { class: "timeline-controls" }, play, slider, band(timeline, pieces)), dragLegend(timeline));
+  const mapColumn = panel.closest(".map-col");
+  mapColumn?.classList.add("drag-view");
   render();
   return () => {
     stop();
+    mapColumn?.classList.remove("drag-view");
     clearLayer(mapView, layer);
   };
 }

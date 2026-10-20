@@ -333,6 +333,8 @@ gmp-advanced-marker:has(> .minute-mark, > .moving-dot) { pointer-events: none; }
 .timeline-band .leg2 { background: var(--leg2); }
 .timeline-band .back { background: var(--back); }
 .timeline-legend .l2::before { background: var(--leg2); }
+/* The drag view draws both legs solid and has its own legend, so the dashed leg swatches below the map would contradict it. */
+.drag-view > .legend > .l1, .drag-view > .legend > .l2 { display: none; }
 .legend .ls::before { background: var(--stop); }
 .legend .lb::before { background: var(--back); }
 
