@@ -1,7 +1,7 @@
-import { el } from "./dom.js?v=202610201433";
-import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201433";
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201433";
-import { showMap } from "./map.js?v=202610201433";
+import { el } from "./dom.js?v=202610201436";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201436";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201436";
+import { showMap } from "./map.js?v=202610201436";
 
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
@@ -55,7 +55,7 @@ function drawRouteMap(container, route) {
     const point = route.points[key];
     if (!point) return;
     view.pin(point, { className: `pin-${key}`, badge, title: `${label}：${point.name}`, zIndex: order + 1 });
-    bounds.push([point.lat, point.lon]);
+    if (key !== "station") bounds.push([point.lat, point.lon]);
   });
   view.frame(bounds);
   return view;
