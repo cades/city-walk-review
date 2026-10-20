@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610201230";
-import { el } from "./dom.js?v=202610201230";
-import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201230";
+import { CONFIG } from "./config.js?v=202610201240";
+import { el } from "./dom.js?v=202610201240";
+import { isAuthError, isInAppBrowser, openCountsByRoute } from "./lib.js?v=202610201240";
 
 const TOKEN_KEY = "cwr_token";
 const NAME_KEY = "cwr_name";

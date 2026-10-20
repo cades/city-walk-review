@@ -1,11 +1,11 @@
-import { el } from "./dom.js?v=202610201230";
-import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201230";
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201230";
+import { el } from "./dom.js?v=202610201240";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610201240";
+import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610201240";
 
 const TILE_URL = "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}";
 const TILE_ATTRIBUTION = "© 內政部國土測繪中心";
 const TAIWAN_CENTER = [23.7, 121.0];
-const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
+const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
   ["station", "站", "最近車站"],
   ["cafe", "咖", "咖啡店"],
