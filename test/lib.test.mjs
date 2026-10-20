@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildTimeline, describeMoment, escapeHtml, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
+  buildTimeline, describeMoment, escapeHtml, filterRoutes, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
   metersPerPixel, minuteMarks, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable, trailPieces, walkedPart,
 } from "../lib.js";
 
@@ -22,6 +22,50 @@ test("groupRoutes follows circle order and can keep only flagged routes", () => 
   const shape = (groups) => groups.map((g) => [g.name, g.routes.map((r) => r.id)]);
   assert.deepEqual(shape(groupRoutes(routes, circles)), [["甲圈", ["B", "A"]], ["乙圈", ["C"]]]);
   assert.deepEqual(shape(groupRoutes(routes, circles, true)), [["甲圈", ["B"]]]);
+});
+
+const searchGroups = [
+  { name: "花東圈", routes: [
+    { id: "花蓮區", district: "花蓮區", title: "花蓮區：美崙松園線" },
+    { id: "台東區", district: "台東區", title: "台東區：臺東鐵花線" },
+  ] },
+  { name: "北三圈", routes: [
+    { id: "北南一區", district: "北南一區", title: "北南一區：景美梘尾線" },
+    { id: "北南二區", district: "北南二區", title: "北南二區：新店瑠公圳線" },
+  ] },
+  { name: "台南一圈", routes: [{ id: "台南北區", district: "台南北區", title: "台南北區：鹽水月津港線" }] },
+  { name: "離島", routes: [{ id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖（基宜圈）：Niujiao Harbour Walk" }] },
+];
+const searchShape = (groups) => groups.map((g) => [g.name, g.routes.map((r) => r.id)]);
+
+test("filterRoutes returns every group when the query is blank", () => {
+  assert.equal(filterRoutes(searchGroups, ""), searchGroups);
+  assert.equal(filterRoutes(searchGroups, " \u3000 "), searchGroups);
+});
+
+test("filterRoutes matches district or route name and drops empty circles", () => {
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "景美")), [["北三圈", ["北南一區"]]]);
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "基宜")), [["離島", ["基宜圈_馬祖"]]]);
+  assert.deepEqual(filterRoutes(searchGroups, "不存在的地方"), []);
+});
+
+test("filterRoutes ignores surrounding spaces, including full-width ones", () => {
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "  景美\u3000")), [["北三圈", ["北南一區"]]]);
+});
+
+test("filterRoutes ignores English case and full-width letters", () => {
+  const harbour = [["離島", ["基宜圈_馬祖"]]];
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "harbour")), harbour);
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "HARBOUR walk")), harbour);
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "ＨＡＲＢＯＵＲ")), harbour);
+});
+
+test("filterRoutes treats 臺 and 台 as the same character", () => {
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "臺南北")), [["台南一圈", ["台南北區"]]]);
+});
+
+test("filterRoutes keeps a whole circle when the circle name matches", () => {
+  assert.deepEqual(searchShape(filterRoutes(searchGroups, "花東")), [["花東圈", ["花蓮區", "台東區"]]]);
 });
 
 test("isInAppBrowser detects LINE, Facebook, Instagram", () => {

@@ -1,7 +1,7 @@
-import { cssVar, el } from "./dom.js?v=202610202200";
+import { cssVar, el } from "./dom.js?v=202610210100";
 import {
   buildTimeline, describeMoment, metersPerPixel, minuteMarks, offsetPath, positionAt, timetable, trailPieces, walkedPart,
-} from "./lib.js?v=202610202200";
+} from "./lib.js?v=202610210100";
 
 const LEG2_SHIFT_PX = 6;
 const SLIDER_STEPS_PER_MINUTE = 10;

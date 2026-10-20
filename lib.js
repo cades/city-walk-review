@@ -21,6 +21,22 @@ export function groupRoutes(routes, circles, onlyFlagged = false) {
     .filter((group) => group.routes.length);
 }
 
+// Full-width letters, 臺/台 and stray spaces are all common in Taiwanese typing, so both sides are folded the same way.
+function searchKey(text) {
+  return String(text).normalize("NFKC").replace(/臺/g, "台").replace(/\s+/g, "").toLowerCase();
+}
+
+export function filterRoutes(groups, query) {
+  const needle = searchKey(query);
+  if (!needle) return groups;
+  const matches = (text) => text != null && searchKey(text).includes(needle);
+  return groups
+    .map((group) => (matches(group.name)
+      ? group
+      : { ...group, routes: group.routes.filter((route) => matches(route.district) || matches(route.title)) }))
+    .filter((group) => group.routes.length);
+}
+
 export function isInAppBrowser(userAgent) {
   return IN_APP_BROWSER.test(userAgent);
 }

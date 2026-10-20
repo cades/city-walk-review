@@ -1,8 +1,8 @@
-import { cssVar, el } from "./dom.js?v=202610202200";
-import { homeCommentCounts, renderComments } from "./feedback.js?v=202610202200";
-import { formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610202200";
-import { showMap } from "./map.js?v=202610202200";
-import { mountTimeline } from "./timeline.js?v=202610202200";
+import { cssVar, el } from "./dom.js?v=202610210100";
+import { homeCommentCounts, renderComments } from "./feedback.js?v=202610210100";
+import { filterRoutes, formatMinutes, groupRoutes, routeIdFromHash } from "./lib.js?v=202610210100";
+import { showMap } from "./map.js?v=202610210100";
+import { mountTimeline } from "./timeline.js?v=202610210100";
 
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
@@ -16,6 +16,7 @@ const PINS = [
 const app = document.getElementById("app");
 let data;
 let onlyFlagged = false;
+let query = "";
 let commentCounts = null;
 
 function routeHref(id) {
@@ -30,7 +31,8 @@ function describePlace(point, meters) {
   return point ? `${point.name}，${describeDistance(meters)}` : "還沒有資料";
 }
 
-function resetView() {
+function resetView(view) {
+  app.dataset.view = view;
   app.replaceChildren();
   window.scrollTo(0, 0);
 }
@@ -76,12 +78,12 @@ function drawOverviewMap(container) {
   view.frame(bounds);
 }
 
-function flagChips(route, withNotes) {
-  const chips = [
-    ...(route.flags || []).map((flag) => el("li", { class: "chip chip-warn" }, flag.label)),
-    ...(withNotes ? route.notes || [] : []).map((note) => el("li", { class: "chip chip-info" }, note)),
+function flagBadges(route) {
+  const badges = [
+    ...(route.flags || []).map((flag) => el("li", { class: "badge badge-warn" }, flag.label)),
+    ...(route.notes || []).map((note) => el("li", { class: "badge badge-info" }, note)),
   ];
-  return chips.length ? el("ul", { class: "chips", "aria-label": "警示" }, chips) : null;
+  return badges.length ? el("ul", { class: "badge-list", "aria-label": "警示" }, badges) : null;
 }
 
 function factList(route) {
@@ -124,10 +126,10 @@ function circleOf(route) {
 export function showRoute(id) {
   const route = data.routes.find((candidate) => candidate.id === id);
   if (!route) return showHome();
-  resetView();
+  resetView("route");
   document.title = `${route.title}｜城市散步路線檢閱`;
   const mapBox = el("div", { class: "map", role: "region", "aria-label": `${route.title} 地圖` });
-  const toolbar = el("div", { class: "timeline-toolbar" });
+  const toolbar = el("div", { class: "segmented timeline-toolbar" });
   const panel = el("div", { class: "timeline-panel" });
   const meta = [circleOf(route), `路線包序號 ${route.seq}`, route.confidence ? `座標信心 ${route.confidence}` : null]
     .filter(Boolean).join("・");
@@ -136,7 +138,7 @@ export function showRoute(id) {
       el("p", { class: "crumb" }, el("a", { href: "#" }, "← 全部路線")),
       el("h1", {}, route.title),
       el("p", { class: "meta" }, meta)),
-    flagChips(route, true) ?? "",
+    flagBadges(route) ?? "",
     el("div", { class: "route-body" },
       el("section", { class: "map-col" },
         route.legs.length ? null : el("p", { class: "notice" }, "這條路線缺座標，地圖不完整"),
@@ -158,59 +160,129 @@ export function showRoute(id) {
   renderComments(route, mapView);
 }
 
-function routeSummary(route) {
-  const total = route.totalM == null ? "全程算不出" : `全程 ${(route.totalM / 1000).toFixed(1)} 公里`;
-  const back = route.endToStartM == null ? null : `終點走回集合點 ${route.endToStartM} 公尺`;
-  return [total, back].filter(Boolean).join("・");
+function splitTitle(title) {
+  const cut = title.indexOf("：");
+  return cut === -1 ? { district: title, line: "" } : { district: title.slice(0, cut), line: title.slice(cut + 1) };
 }
 
-function routeRow(route) {
+function legBar(route, longest) {
+  const [first, second] = route.legs;
+  if (!first || !second || !route.totalM) return el("span", { class: "leg-track" });
+  return el("span", { class: "leg-track", "aria-hidden": "true" },
+    el("span", { class: "leg-bar", style: `width: ${Math.min(route.totalM / longest, 1) * 100}%` },
+      el("span", { class: "l1", style: `flex-grow: ${first.m}` }),
+      el("span", { class: "l2", style: `flex-grow: ${second.m}` })));
+}
+
+function routeCard(route, longest) {
+  const { district, line } = splitTitle(route.title);
+  const flags = route.flags || [];
   const open = commentCounts?.get(route.id);
-  return el("li", { class: "route-row" },
-    el("a", { href: routeHref(route.id) }, route.title),
-    el("span", { class: "row-meta" }, routeSummary(route)),
-    open ? el("span", { class: "chip chip-info" }, `${open} 則未處理意見`) : null,
-    flagChips(route, false) || el("span", { class: "row-meta" }, "沒有警示"));
+  const distance = route.totalM == null
+    ? "全程算不出"
+    : `${(route.totalM / 1000).toFixed(1)} 公里・${formatMinutes(route.totalM)}`;
+  return el("li", {},
+    el("a", { class: "card route-card", href: routeHref(route.id) },
+      el("span", { class: "route-card-name" }, el("strong", {}, district), line ? el("span", {}, line) : null),
+      el("span", { class: "route-card-meta" }, legBar(route, longest), distance),
+      el("span", { class: "route-card-badges" },
+        flags.length
+          ? el("span", { class: "badge badge-warn", title: flags.map((flag) => flag.label).join("\n") }, `警示 ${flags.length}`)
+          : null,
+        open ? el("span", { class: "badge badge-info" }, `${open} 則未處理意見`) : null)));
 }
 
-function groupList() {
-  const groups = groupRoutes(data.routes, data.circles, onlyFlagged);
-  if (!groups.length) return el("p", { class: "notice" }, "目前沒有路線有警示。");
-  return el("div", { class: "groups" }, groups.map((group) =>
-    el("section", { class: "panel group" },
-      el("h2", {}, group.name, el("span", { class: "count" }, `${group.routes.length} 區`)),
-      el("ul", { class: "route-rows" }, group.routes.map(routeRow)))));
+function emptyMessage() {
+  const wanted = query.trim();
+  if (!wanted) return "目前沒有路線有警示。";
+  if (onlyFlagged) return `有警示的路線裡找不到「${wanted}」。取消「只看有警示的」再找找看。`;
+  return `找不到「${wanted}」。可以輸入區名、路線名或圈名，例如景美、花東。`;
+}
+
+function groupList(groups, longest) {
+  if (!groups.length) return [el("p", { class: "notice" }, emptyMessage())];
+  return groups.map((group) =>
+    el("section", { class: "route-group" },
+      el("h2", { class: "group-label" }, group.name, el("span", { class: "count" }, `${group.routes.length} 區`)),
+      el("ul", { class: "route-cards" }, group.routes.map((route) => routeCard(route, longest)))));
+}
+
+// Filtering while scrolled down would leave the first results above the screen, hidden under the sticky search box.
+function scrollToResults(intro) {
+  const headerBottom = Math.max(0, document.querySelector(".bar").getBoundingClientRect().bottom);
+  const resultsTop = intro.getBoundingClientRect().bottom + window.scrollY - headerBottom;
+  if (window.scrollY > resultsTop) window.scrollTo(0, resultsTop);
+}
+
+function countText(shown) {
+  const total = data.routes.length;
+  return shown === total ? `共 ${total} 條路線` : `${shown} 條符合（共 ${total} 條）`;
 }
 
 export function showHome() {
-  resetView();
+  resetView("home");
   document.title = "城市散步路線檢閱";
   const flaggedCount = data.routes.filter((route) => route.flags?.length).length;
+  const longest = Math.max(...data.routes.map((route) => route.totalM || 0));
   const mapBox = el("div", { class: "map", role: "region", "aria-label": "全部路線地圖" });
-  const listBox = el("div", {}, groupList());
-  const toggleLabel = () => (onlyFlagged ? "顯示全部路線" : `只看有警示的（${flaggedCount} 條）`);
-  const toggle = el("button", { type: "button", class: "toggle", "aria-pressed": String(onlyFlagged) }, toggleLabel());
+  const listBox = el("div", { class: "route-groups" });
+  const count = el("p", { class: "result-count", role: "status" });
+  const search = el("input", {
+    type: "search", "aria-label": "搜尋區名、路線名或圈名", placeholder: "搜尋區名、路線名或圈名",
+    autocomplete: "off", enterkeyhint: "search",
+  });
+  search.value = query;
+  const toggle = el("button", { type: "button", class: "toggle", "aria-pressed": String(onlyFlagged) },
+    `只看有警示的（${flaggedCount} 條）`);
+  const intro = el("div", { class: "home-intro" },
+    el("h1", { id: "home-title" }, "全部路線"),
+    el("p", { class: "meta" }, `${data.routes.length} 區，各一條環狀路線，依圈排列。點地圖上的點或路線名稱看細節。`));
+
+  const refresh = () => {
+    const groups = filterRoutes(groupRoutes(data.routes, data.circles, onlyFlagged), query);
+    count.textContent = countText(groups.reduce((sum, group) => sum + group.routes.length, 0));
+    listBox.replaceChildren(...groupList(groups, longest));
+  };
+  const showResults = () => {
+    refresh();
+    scrollToResults(intro);
+  };
+  const searchFor = () => {
+    query = search.value;
+    showResults();
+  };
+  // Zhuyin and Pinyin keyboards send half-typed syllables while composing; filter once the characters are chosen.
+  search.addEventListener("input", (event) => event.isComposing || searchFor());
+  search.addEventListener("compositionend", searchFor);
+  search.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.isComposing) search.blur();
+  });
   toggle.addEventListener("click", () => {
     onlyFlagged = !onlyFlagged;
     toggle.setAttribute("aria-pressed", String(onlyFlagged));
-    toggle.textContent = toggleLabel();
-    listBox.replaceChildren(groupList());
+    showResults();
   });
+
+  // The list comes first in the page so Tab reaches the search box before the 61 map markers; CSS shows the map first.
   app.append(
-    el("section", {},
-      el("h1", {}, "全部路線"),
-      el("p", { class: "meta" }, `${data.routes.length} 區，各一條環狀路線，依圈排列。點地圖上的點或路線名稱看細節。`)),
-    el("div", { class: "route-body home-body" },
-      el("section", { class: "map-col" },
-        mapBox,
-        el("p", { class: "legend" }, el("span", { class: "dot-ok" }, "沒有警示"), el("span", { class: "dot-warn" }, "有警示"))),
-      el("div", { class: "stack" }, el("div", { class: "toolbar" }, toggle), listBox)),
+    el("section", { class: "home-list", "aria-labelledby": "home-title" },
+      intro,
+      el("div", { class: "list-tools" },
+        el("label", { class: "search" }, search),
+        el("div", { class: "list-tools-row" }, toggle, count)),
+      listBox,
+      // The page footer would sit below the sticky map and push it up at the end of the list, so home keeps its own.
+      el("p", { class: "list-footer" }, el("a", { href: "privacy.html" }, "隱私權說明"))),
+    el("div", { class: "home-map" },
+      mapBox,
+      el("p", { class: "legend map-legend" }, el("span", { class: "dot-ok" }, "沒有警示"), el("span", { class: "dot-warn" }, "有警示"))),
   );
+  refresh();
   drawOverviewMap(mapBox);
   homeCommentCounts().then((counts) => {
     if (!counts || !listBox.isConnected) return;
     commentCounts = counts;
-    listBox.replaceChildren(groupList());
+    refresh();
   });
 }
 

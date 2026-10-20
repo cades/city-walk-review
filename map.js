@@ -1,6 +1,6 @@
-import { CONFIG } from "./config.js?v=202610202200";
-import { el } from "./dom.js?v=202610202200";
-import { headingTo, latLngOf } from "./lib.js?v=202610202200";
+import { CONFIG } from "./config.js?v=202610210100";
+import { el } from "./dom.js?v=202610210100";
+import { headingTo, latLngOf } from "./lib.js?v=202610210100";
 
 const TAIWAN = { lat: 23.7, lng: 121.0 };
 const FRAME_PADDING = 24;
