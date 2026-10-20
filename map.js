@@ -75,17 +75,48 @@ class Layer {
     for (const item of this.items.splice(0)) detach(item);
   }
 
-  path(points, { color, weight, opacity = 1, dashed = false }) {
-    return this.view.draw((lib) => this.track(new lib.Polyline({
-      map,
-      path: points.map(toLatLng),
-      strokeColor: color,
-      strokeWeight: weight,
-      strokeOpacity: dashed ? 0 : opacity,
-      icons: dashed
-        ? [{ icon: { path: "M 0,-1 0,1", strokeColor: color, strokeOpacity: opacity, strokeWeight: weight, scale: weight }, offset: "0", repeat: `${weight * 4}px` }]
-        : [],
+  path(points, options) {
+    return this.line(points, options);
+  }
+
+  line(points, { color, weight, opacity = 1, dashed = false, arrows = false, zIndex = 0 }) {
+    return this.view.draw((lib) => {
+      const icons = [];
+      if (dashed) {
+        icons.push({ icon: { path: "M 0,-1 0,1", strokeColor: color, strokeOpacity: opacity, strokeWeight: weight, scale: weight }, offset: "0", repeat: `${weight * 4}px` });
+      }
+      if (arrows) {
+        icons.push({
+          icon: { path: lib.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.5, strokeColor: color, strokeOpacity: opacity, fillColor: color, fillOpacity: opacity },
+          repeat: "80px",
+        });
+      }
+      const polyline = this.track(new lib.Polyline({
+        map,
+        path: points.map(toLatLng),
+        strokeColor: color,
+        strokeWeight: weight,
+        strokeOpacity: dashed ? 0 : opacity,
+        zIndex,
+        icons,
+      }));
+      return { setPoints: (next) => polyline.setPath(next.map(toLatLng)) };
+    });
+  }
+
+  label(point, { text, className = "", zIndex = 50 }) {
+    return this.view.draw((lib) => this.track(new lib.AdvancedMarkerElement({
+      map, position: toLatLng(point), content: el("div", { class: `minute-mark ${className}` }, text), zIndex, gmpClickable: false,
     })));
+  }
+
+  mover(point, { className = "" } = {}) {
+    return this.view.draw((lib) => {
+      const marker = this.track(new lib.AdvancedMarkerElement({
+        map, position: toLatLng(point), content: el("div", { class: `moving-dot ${className}` }), zIndex: 90, gmpClickable: false,
+      }));
+      return { moveTo: (next) => { marker.position = toLatLng(next); } };
+    });
   }
 
   marker(point, { content, title, zIndex = 0, onClick }) {
@@ -190,6 +221,15 @@ class MapView extends Layer {
       handler(latLngOf(event.latLng));
     })));
     return () => listener.then((handle) => handle?.remove());
+  }
+
+  onZoom(handler) {
+    const listener = this.draw(() => this.track(map.addListener("zoom_changed", () => handler(map.getZoom(), map.getCenter().lat()))));
+    return () => listener.then((handle) => handle?.remove());
+  }
+
+  zoomInfo() {
+    return this.draw(() => ({ zoom: map.getZoom(), lat: map.getCenter().lat() }));
   }
 
   close() {
