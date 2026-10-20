@@ -230,3 +230,18 @@ h2 { font-size: 18px; margin: 0 0 8px; }
 .comment-reply { margin-top: 4px !important; color: var(--info-fg); }
 .comment-handled .comment-text { color: var(--muted); }
 .comment-empty { color: var(--muted); }
+
+.prose { max-width: 720px; display: block; }
+.prose h1 { margin-bottom: 12px; }
+.prose h2 { margin-top: 24px; }
+.prose ul { padding-left: 20px; }
+
+.footer {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding-block: 0 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  color: var(--muted);
+  font-size: 13px;
+}
