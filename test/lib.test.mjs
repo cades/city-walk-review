@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildTimeline, describeMoment, escapeHtml, filterRoutes, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
-  metersPerPixel, minuteMarks, neighborRoutes, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, timetable, trailPieces,
-  walkedPart,
+  metersPerPixel, minuteMarks, neighborRoutes, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, stepTarget, timetable,
+  trailPieces, walkedPart,
 } from "../lib.js";
 
 test("formatMinutes uses 70 m per minute", () => {
@@ -87,6 +87,28 @@ test("neighborRoutes crosses into the next and previous circle", () => {
 test("neighborRoutes has no previous route for the first and no next route for the last", () => {
   assert.deepEqual(neighborRoutes(neighborCircles, "花蓮區"), { prev: null, next: "台東區" });
   assert.deepEqual(neighborRoutes(neighborCircles, "基宜圈_馬祖"), { prev: "蘇澳區", next: null });
+});
+
+const stepRoutes = [
+  { id: "北南一區", district: "北南一區", title: "北南一區：景美溪線" },
+  { id: "基隆北區", district: "基隆北區", title: "基隆北區：梓桑古厝線" },
+  { id: "基隆北區-2", district: "基隆北區", title: "基隆北區：三連棟線" },
+  { id: "基隆東區", district: "基隆東區", title: "基隆東區：正濱港灣線" },
+  { id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖（基宜圈）：牛角聚落線" },
+];
+
+test("stepTarget names the line when the neighbor route is in the same district", () => {
+  assert.deepEqual(stepTarget(stepRoutes, "基隆北區", "基隆北區-2"), { sameDistrict: true, name: "三連棟線" });
+  assert.deepEqual(stepTarget(stepRoutes, "基隆北區-2", "基隆北區"), { sameDistrict: true, name: "梓桑古厝線" });
+});
+
+test("stepTarget names the district when the neighbor route is in another district", () => {
+  assert.deepEqual(stepTarget(stepRoutes, "北南一區", "基隆北區"), { sameDistrict: false, name: "基隆北區" });
+  assert.deepEqual(stepTarget(stepRoutes, "基隆北區-2", "基隆東區"), { sameDistrict: false, name: "基隆東區" });
+});
+
+test("stepTarget drops the circle in brackets from island names", () => {
+  assert.deepEqual(stepTarget(stepRoutes, "基隆東區", "基宜圈_馬祖"), { sameDistrict: false, name: "馬祖" });
 });
 
 test("neighborRoutes gives neither neighbour for an unknown route", () => {

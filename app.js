@@ -1,8 +1,8 @@
-import { cssVar, el } from "./dom.js?v=202610210100";
-import { feedbackEnabled, homeCommentCounts, renderComments } from "./feedback.js?v=202610210100";
-import { filterRoutes, formatMinutes, groupRoutes, neighborRoutes, routeIdFromHash } from "./lib.js?v=202610210100";
-import { showMap } from "./map.js?v=202610210100";
-import { mountTimeline } from "./timeline.js?v=202610210100";
+import { cssVar, el } from "./dom.js?v=202610232200";
+import { feedbackEnabled, homeCommentCounts, renderComments } from "./feedback.js?v=202610232200";
+import { filterRoutes, formatMinutes, groupRoutes, neighborRoutes, routeIdFromHash, splitTitle, stepTarget } from "./lib.js?v=202610232200";
+import { showMap } from "./map.js?v=202610232200";
+import { mountTimeline } from "./timeline.js?v=202610232200";
 
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
@@ -133,13 +133,12 @@ function circleOf(route) {
   return data.circles.find((circle) => circle.routes.includes(route.id))?.name;
 }
 
-function routeStep(rel, id) {
-  const label = rel === "prev" ? "上一區" : "下一區";
+function routeStep(rel, id, fromId) {
   if (!id) return el("span", { class: "route-step", "data-rel": rel, "aria-disabled": "true" }, rel === "prev" ? "已是第一區" : "已是最後一區");
-  // Island routes are titled like 馬祖（基宜圈）; the place name alone keeps both buttons on one line on phones.
-  const district = splitTitle(data.routes.find((route) => route.id === id).title).district.replace(/（.*?）/, "");
-  return el("a", { class: "route-step", "data-rel": rel, href: routeHref(id), rel, "aria-label": `${label}：${district}` },
-    el("span", { class: "route-step-label" }, label), el("span", {}, district));
+  const { sameDistrict, name } = stepTarget(data.routes, fromId, id);
+  const label = (sameDistrict ? "同區" : "") + (rel === "prev" ? (sameDistrict ? "上一條" : "上一區") : (sameDistrict ? "下一條" : "下一區"));
+  return el("a", { class: "route-step", "data-rel": rel, href: routeHref(id), rel, "aria-label": `${label}：${name}` },
+    el("span", { class: "route-step-label" }, label), el("span", {}, name));
 }
 
 function flagCountButton(route, onClick) {
@@ -161,7 +160,7 @@ function routeHead(route, showFlags) {
       el("h1", { class: "route-title" }, el("strong", {}, district), line ? [" ", el("span", {}, line)] : null),
       flagCountButton(route, showFlags),
       el("p", { class: "meta" }, meta)),
-    el("nav", { class: "route-steps", "aria-label": "上一區、下一區" }, routeStep("prev", prev), routeStep("next", next)));
+    el("nav", { class: "route-steps", "aria-label": "上一區、下一區" }, routeStep("prev", prev, route.id), routeStep("next", next, route.id)));
 }
 
 function mountTabs(sections, initial) {
@@ -258,11 +257,6 @@ export function showRoute(id) {
   const mapView = drawRouteMap(mapBox, route);
   mountTimeline(route, mapView, { toolbar, panel, legend });
   renderComments(route, mapView);
-}
-
-function splitTitle(title) {
-  const cut = title.indexOf("：");
-  return cut === -1 ? { district: title, line: "" } : { district: title.slice(0, cut), line: title.slice(cut + 1) };
 }
 
 function legBar(route, longest) {

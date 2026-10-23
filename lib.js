@@ -44,6 +44,19 @@ export function neighborRoutes(circles, id) {
   return { prev: order[index - 1] ?? null, next: order[index + 1] ?? null };
 }
 
+export function splitTitle(title) {
+  const cut = title.indexOf("：");
+  return cut === -1 ? { district: title, line: "" } : { district: title.slice(0, cut), line: title.slice(cut + 1) };
+}
+
+export function stepTarget(routes, fromId, toId) {
+  const target = routes.find((route) => route.id === toId);
+  const sameDistrict = routes.find((route) => route.id === fromId)?.district === target.district;
+  const { district, line } = splitTitle(target.title);
+  // Island routes are titled like 馬祖（基宜圈）; the place name alone keeps both buttons on one line on phones.
+  return { sameDistrict, name: sameDistrict ? line : district.replace(/（.*?）/, "") };
+}
+
 export function isInAppBrowser(userAgent) {
   return IN_APP_BROWSER.test(userAgent);
 }
