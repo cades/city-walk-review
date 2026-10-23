@@ -53,8 +53,7 @@ export function stepTarget(routes, fromId, toId) {
   const target = routes.find((route) => route.id === toId);
   const sameDistrict = routes.find((route) => route.id === fromId)?.district === target.district;
   const { district, line } = splitTitle(target.title);
-  // Island routes are titled like 馬祖（基宜圈）; the place name alone keeps both buttons on one line on phones.
-  return { sameDistrict, name: sameDistrict ? line : district.replace(/（.*?）/, "") };
+  return { sameDistrict, name: sameDistrict ? line : district };
 }
 
 export function countLabel(routes) {

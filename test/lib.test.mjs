@@ -36,7 +36,7 @@ const searchGroups = [
     { id: "北南二區", district: "北南二區", title: "北南二區：新店瑠公圳線" },
   ] },
   { name: "台南一圈", routes: [{ id: "台南北區", district: "台南北區", title: "台南北區：鹽水月津港線" }] },
-  { name: "離島", routes: [{ id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖（基宜圈）：Niujiao Harbour Walk" }] },
+  { name: "離島", routes: [{ id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖：Niujiao Harbour Walk" }] },
 ];
 const searchShape = (groups) => groups.map((g) => [g.name, g.routes.map((r) => r.id)]);
 
@@ -95,7 +95,7 @@ const stepRoutes = [
   { id: "基隆北區", district: "基隆北區", title: "基隆北區：梓桑古厝線" },
   { id: "基隆北區-2", district: "基隆北區", title: "基隆北區：三連棟線" },
   { id: "基隆東區", district: "基隆東區", title: "基隆東區：正濱港灣線" },
-  { id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖（基宜圈）：牛角聚落線" },
+  { id: "基宜圈_馬祖", district: "基宜圈_馬祖", title: "馬祖：牛角聚落線" },
 ];
 
 test("stepTarget names the line when the neighbor route is in the same district", () => {
@@ -106,6 +106,10 @@ test("stepTarget names the line when the neighbor route is in the same district"
 test("stepTarget names the district when the neighbor route is in another district", () => {
   assert.deepEqual(stepTarget(stepRoutes, "北南一區", "基隆北區"), { sameDistrict: false, name: "基隆北區" });
   assert.deepEqual(stepTarget(stepRoutes, "基隆北區-2", "基隆東區"), { sameDistrict: false, name: "基隆東區" });
+});
+
+test("stepTarget names an island by its place", () => {
+  assert.deepEqual(stepTarget(stepRoutes, "基隆東區", "基宜圈_馬祖"), { sameDistrict: false, name: "馬祖" });
 });
 
 test("countLabel shows only districts when each district has one route", () => {
