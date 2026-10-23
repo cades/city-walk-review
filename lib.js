@@ -57,6 +57,11 @@ export function stepTarget(routes, fromId, toId) {
   return { sameDistrict, name: sameDistrict ? line : district.replace(/（.*?）/, "") };
 }
 
+export function countLabel(routes) {
+  const districts = new Set(routes.map((route) => route.district)).size;
+  return districts === routes.length ? `${districts} 區` : `${districts} 區 ${routes.length} 條`;
+}
+
 export function isInAppBrowser(userAgent) {
   return IN_APP_BROWSER.test(userAgent);
 }

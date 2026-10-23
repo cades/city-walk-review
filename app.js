@@ -1,8 +1,8 @@
-import { cssVar, el } from "./dom.js?v=202610232200";
-import { feedbackEnabled, homeCommentCounts, renderComments } from "./feedback.js?v=202610232200";
-import { filterRoutes, formatMinutes, groupRoutes, neighborRoutes, routeIdFromHash, splitTitle, stepTarget } from "./lib.js?v=202610232200";
-import { showMap } from "./map.js?v=202610232200";
-import { mountTimeline } from "./timeline.js?v=202610232200";
+import { cssVar, el } from "./dom.js?v=202610240010";
+import { feedbackEnabled, homeCommentCounts, renderComments } from "./feedback.js?v=202610240010";
+import { countLabel, filterRoutes, formatMinutes, groupRoutes, neighborRoutes, routeIdFromHash, splitTitle, stepTarget } from "./lib.js?v=202610240010";
+import { showMap } from "./map.js?v=202610240010";
+import { mountTimeline } from "./timeline.js?v=202610240010";
 
 const TEXT_ORDER = ["集合點", "停車", "路線", "停留點一", "介紹詞", "建議故事卡", "終點", "回程", "廁所", "雨天備案", "選配", "備註"];
 const PINS = [
@@ -297,7 +297,7 @@ function groupList(groups, longest) {
   if (!groups.length) return [el("p", { class: "notice" }, emptyMessage())];
   return groups.map((group) =>
     el("section", { class: "route-group" },
-      el("h2", { class: "group-label" }, group.name, el("span", { class: "count" }, `${group.routes.length} 區`)),
+      el("h2", { class: "group-label" }, group.name, el("span", { class: "count" }, countLabel(group.routes))),
       el("ul", { class: "route-cards" }, group.routes.map((route) => routeCard(route, longest)))));
 }
 
@@ -331,7 +331,7 @@ export function showHome() {
     `只看有警示的（${flaggedCount} 條）`);
   const intro = el("div", { class: "home-intro" },
     el("h1", { id: "home-title" }, "全部路線"),
-    el("p", { class: "meta" }, `${data.routes.length} 區，各一條環狀路線，依圈排列。點地圖上的點或路線名稱看細節。`));
+    el("p", { class: "meta" }, `${countLabel(data.routes)}，每條都是環狀路線，依圈排列。點地圖上的點或路線名稱看細節。`));
 
   const refresh = () => {
     const groups = filterRoutes(groupRoutes(data.routes, data.circles, onlyFlagged), query);

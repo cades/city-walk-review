@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildTimeline, describeMoment, escapeHtml, filterRoutes, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo, latLngOf,
+  buildTimeline, countLabel, describeMoment, escapeHtml, filterRoutes, formatMinutes, groupRoutes, isAuthError, isInAppBrowser, headingTo,
+  latLngOf,
   metersPerPixel, minuteMarks, neighborRoutes, offsetPath, openCountsByRoute, positionAt, routeIdFromHash, stepTarget, timetable,
   trailPieces, walkedPart,
 } from "../lib.js";
@@ -105,6 +106,14 @@ test("stepTarget names the line when the neighbor route is in the same district"
 test("stepTarget names the district when the neighbor route is in another district", () => {
   assert.deepEqual(stepTarget(stepRoutes, "北南一區", "基隆北區"), { sameDistrict: false, name: "基隆北區" });
   assert.deepEqual(stepTarget(stepRoutes, "基隆北區-2", "基隆東區"), { sameDistrict: false, name: "基隆東區" });
+});
+
+test("countLabel shows only districts when each district has one route", () => {
+  assert.equal(countLabel(stepRoutes.filter((route) => route.id !== "基隆北區-2")), "4 區");
+});
+
+test("countLabel adds the route count when a district has more than one route", () => {
+  assert.equal(countLabel(stepRoutes), "4 區 5 條");
 });
 
 test("stepTarget drops the circle in brackets from island names", () => {
